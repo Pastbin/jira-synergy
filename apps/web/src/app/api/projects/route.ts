@@ -18,6 +18,7 @@ export async function GET() {
     });
     return NextResponse.json(projects);
   } catch (error) {
+    console.error("GET Projects Error:", error);
     return NextResponse.json({ error: "Ошибка при получении проектов" }, { status: 500 });
   }
 }
@@ -47,6 +48,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(project, { status: 201 });
   } catch (error) {
+    console.error("POST Project Error:", error);
     return NextResponse.json({ error: "Ошибка при создании проекта" }, { status: 500 });
   }
 }

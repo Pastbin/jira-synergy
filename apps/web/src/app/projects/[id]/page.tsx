@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import styled from "styled-components";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
+import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import KanbanBoard from "@/components/KanbanBoard";
 
 // Контейнер страницы проекта
 const ProjectContainer = styled.div`
   padding: 2rem;
-  background-color: #ffffff;
-  min-height: 100vh;
 `;
 
 // Шапка проекта
@@ -32,16 +32,24 @@ const KanbanBoardPlaceholder = styled.div`
   color: #5e6c84;
 `;
 
-export default function ProjectDetailsPage({ params }: { params: { id: string } }) {
-  const [project, setProject] = useState<any>(null);
+interface Project {
+  id: string;
+  name: string;
+  description: string | null;
+  tasks: Array<{
+    id: string;
+    title: string;
+    status: string;
+  }>;
+}
+
+export default function ProjectDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchProject();
-  }, []);
-
   const fetchProject = async () => {
-    const res = await fetch(`/api/projects/${params.id}`);
+    const res = await fetch(`/api/projects/${id}`);
     if (res.ok) {
       const data = await res.json();
       setProject(data);
@@ -49,7 +57,18 @@ export default function ProjectDetailsPage({ params }: { params: { id: string } 
     setLoading(false);
   };
 
-  if (loading) return <p>Загрузка проекта...</p>;
+  useEffect(() => {
+    fetchProject();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh" }}>
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
   if (!project) return <p>Проект не найден</p>;
 
   return (
@@ -68,7 +87,7 @@ export default function ProjectDetailsPage({ params }: { params: { id: string } 
         <p style={{ color: "#5e6c84" }}>{project.description || "Без описания"}</p>
       </div>
 
-      <KanbanBoardPlaceholder>Здесь скоро будет Kanban-доска с поддержкой Drag-and-Drop</KanbanBoardPlaceholder>
+      <KanbanBoard projectId={id} tasks={project.tasks || []} onTaskAdded={fetchProject} />
     </ProjectContainer>
   );
 }

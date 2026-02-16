@@ -2,30 +2,11 @@
 
 import { useState, useEffect } from "react";
 import styled from "styled-components";
-import { Plus, Folder, Layout, LogOut } from "lucide-react";
-import { signOut } from "next-auth/react";
+import { Plus } from "lucide-react";
 import Link from "next/link";
+import LoadingSpinner from "@/components/ui/LoadingSpinner";
 
-// Основной контейнер панели управления
-const DashboardContainer = styled.div`
-  display: flex;
-  min-height: 100vh;
-  background-color: #f4f5f7;
-`;
-
-// Боковая панель (Sidebar)
-const Sidebar = styled.aside`
-  width: 240px;
-  background-color: #0747a6;
-  color: white;
-  display: flex;
-  flex-direction: column;
-  padding: 1.5rem;
-`;
-
-// Основная область контента
-const MainContent = styled.main`
-  flex: 1;
+const MainContent = styled.div`
   padding: 2rem;
 `;
 
@@ -138,54 +119,36 @@ export default function ProjectsPage() {
   };
 
   return (
-    <DashboardContainer>
-      <Sidebar>
-        <h2 style={{ marginBottom: "2rem" }}>Jira Synergy</h2>
-        <nav style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <Folder size={20} /> Проекты
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", opacity: 0.7 }}>
-            <Layout size={20} /> Доска
-          </div>
-        </nav>
-        <div
-          style={{ marginTop: "auto", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px" }}
-          onClick={() => signOut()}
-        >
-          <LogOut size={20} /> Выйти
-        </div>
-      </Sidebar>
+    <MainContent>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h1>Ваши проекты</h1>
+        <CreateButton onClick={() => setIsModalOpen(true)}>
+          <Plus size={18} /> Создать проект
+        </CreateButton>
+      </div>
 
-      <MainContent>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h1>Ваши проекты</h1>
-          <CreateButton onClick={() => setIsModalOpen(true)}>
-            <Plus size={18} /> Создать проект
-          </CreateButton>
+      {loading ? (
+        <div style={{ display: "flex", justifyContent: "center", marginTop: "4rem" }}>
+          <LoadingSpinner />
         </div>
-
-        {loading ? (
-          <p>Загрузка...</p>
-        ) : (
-          <ProjectGrid>
-            {projects.map((project) => (
-              <Link
-                href={`/projects/${project.id}`}
-                key={project.id}
-                style={{ textDecoration: "none", color: "inherit" }}
-              >
-                <ProjectCard>
-                  <h3>{project.name}</h3>
-                  <p style={{ color: "#5e6c84", fontSize: "0.9rem", marginTop: "0.5rem" }}>
-                    {project.description || "Нет описания"}
-                  </p>
-                </ProjectCard>
-              </Link>
-            ))}
-          </ProjectGrid>
-        )}
-      </MainContent>
+      ) : (
+        <ProjectGrid>
+          {projects.map((project) => (
+            <Link
+              href={`/projects/${project.id}`}
+              key={project.id}
+              style={{ textDecoration: "none", color: "inherit" }}
+            >
+              <ProjectCard>
+                <h3>{project.name}</h3>
+                <p style={{ color: "#5e6c84", fontSize: "0.9rem", marginTop: "0.5rem" }}>
+                  {project.description || "Нет описания"}
+                </p>
+              </ProjectCard>
+            </Link>
+          ))}
+        </ProjectGrid>
+      )}
 
       {isModalOpen && (
         <ModalOverlay>
@@ -230,6 +193,6 @@ export default function ProjectsPage() {
           </Modal>
         </ModalOverlay>
       )}
-    </DashboardContainer>
+    </MainContent>
   );
 }
