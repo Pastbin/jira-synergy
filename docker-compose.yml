@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   db:
-    image: postgres:15-alpine
+    image: postgres:18
     container_name: jira-synergy-db
     restart: always
     environment:
@@ -14,7 +14,7 @@ services:
       # Проброс портов для БД
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/18/data
 
 volumes:
   postgres_data:
