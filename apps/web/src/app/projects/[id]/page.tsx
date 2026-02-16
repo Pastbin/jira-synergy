@@ -20,8 +20,8 @@ const ProjectHeader = styled.header`
   margin-bottom: 2rem;
 `;
 
-// Заглушка для доски
-const KanbanBoardPlaceholder = styled.div`
+// Контейнер для пустого состояния доски
+const EmptyBoardState = styled.div`
   background: #f4f5f7;
   border: 2px dashed #dfe1e6;
   border-radius: 8px;
