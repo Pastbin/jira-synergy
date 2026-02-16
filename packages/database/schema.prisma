@@ -1,0 +1,58 @@
+// Генератор клиента Prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Конфигурация источника данных (PostgreSQL)
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Модель пользователя системы
+model User {
+  id            String    @id @default(cuid()) // Уникальный идентификатор
+  name          String?   // Имя пользователя
+  email         String    @unique // Электронная почта (уникальная)
+  password      String    // Хешированный пароль
+  projects      Project[] @relation("ProjectToUser") // Связь с проектами
+  assignedTasks Task[]    @relation("AssignedTasks") // Связь с назначенными задачами
+  createdAt     DateTime  @default(now()) // Дата создания
+  updatedAt     DateTime  @updatedAt // Дата обновления
+}
+
+// Модель проекта
+model Project {
+  id          String   @id @default(cuid()) // ID проекта
+  name        String   // Название
+  description String?  // Описание
+  ownerId     String   // ID владельца
+  owner       User     @relation("ProjectToUser", fields: [ownerId], references: [id]) // Связь с владельцем
+  tasks       Task[]   // Список задач в проекте
+  createdAt   DateTime @default(now()) // Дата создания
+  updatedAt   DateTime @updatedAt // Дата обновления
+}
+
+// Модель задачи (Task)
+model Task {
+  id          String   @id @default(cuid()) // ID задачи
+  title       String   // Заголовок
+  description String?  // Описание
+  status      Status   @default(TODO) // Текущий статус
+  deadline    DateTime? // Крайний срок
+  projectId   String   // ID проекта
+  project     Project  @relation(fields: [projectId], references: [id]) // Связь с проектом
+  assigneeId  String?  // ID ответственного
+  assignee    User?    @relation("AssignedTasks", fields: [assigneeId], references: [id]) // Связь с ответственным
+  createdAt   DateTime @default(now()) // Дата создания
+  updatedAt   DateTime @updatedAt // Дата обновления
+}
+
+// Перечисление возможных статусов задачи по Kanban
+enum Status {
+  TODO        // К выполнению
+  IN_PROGRESS // В работе
+  REVIEW      // На ревью
+  TESTING     // На тестировании
+  DONE        // Готово
+}
