@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Создание записи пользователя
-    const user = await prisma.user.create({
+    await prisma.user.create({
       data: {
         email,
         name,
@@ -30,6 +30,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ message: "Пользователь успешно создан" }, { status: 201 });
   } catch (error) {
+    console.error("Registration error:", error);
     return NextResponse.json({ error: "Ошибка сервера" }, { status: 500 });
   }
 }
