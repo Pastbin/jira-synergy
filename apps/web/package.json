@@ -9,26 +9,28 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@repo/database": "*",
+    "@hello-pangea/dnd": "^17.0.0",
     "@reduxjs/toolkit": "^2.5.1",
+    "@repo/database": "*",
+    "bcryptjs": "^3.0.3",
+    "lucide-react": "^0.474.0",
     "next": "15.1.7",
+    "next-auth": "5.0.0-beta.25",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-redux": "^9.2.0",
-    "styled-components": "^6.1.14",
     "sass": "^1.83.4",
-    "lucide-react": "^0.474.0",
-    "next-auth": "5.0.0-beta.25",
-    "zod": "^3.24.1",
-    "@hello-pangea/dnd": "^17.0.0",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "styled-components": "^6.1.14",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.13.1",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
-    "typescript": "^5.7.3",
     "eslint": "^9.19.0",
-    "eslint-config-next": "15.1.6"
+    "eslint-config-next": "15.1.6",
+    "typescript": "^5.7.3"
   }
 }
