@@ -1,6 +1,7 @@
 {
   "name": "jira-synergy",
   "private": true,
+  "packageManager": "npm@10.9.0",
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
@@ -15,8 +16,5 @@
     "prettier": "^3.4.2",
     "turbo": "^2.3.3",
     "typescript": "^5.7.3"
-  },
-  "dependencies": {
-    "next": "^16.1.6"
   }
 }
