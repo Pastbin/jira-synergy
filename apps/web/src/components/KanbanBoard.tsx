@@ -124,6 +124,7 @@ interface Task {
   id: string;
   title: string;
   status: string;
+  order: number;
 }
 
 interface KanbanBoardProps {
@@ -152,7 +153,8 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded }: KanbanBoa
     setLocalTasks(tasks);
   }, [tasks]);
 
-  const tasksByStatus = (status: string) => localTasks.filter((t) => t.status === status);
+  const tasksByStatus = (status: string) =>
+    localTasks.filter((t) => t.status === status).sort((a, b) => a.order - b.order);
 
   const handleOpenModal = (status: string) => {
     setActiveStatus(status);
@@ -164,37 +166,54 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded }: KanbanBoa
 
     if (!destination) return;
 
-    // Ничего не меняем, если позиция не изменилась
     if (destination.droppableId === source.droppableId && destination.index === source.index) {
       return;
     }
 
     // 1. Оптимистичное обновление локального состояния
-    const movingTask = localTasks.find((t) => t.id === draggableId);
-    if (!movingTask) return;
+    const taskToMove = localTasks.find((t) => t.id === draggableId);
+    if (!taskToMove) return;
 
-    // Создаем новый список задач с обновленным статусом
-    const updatedLocalTasks = localTasks.map((t) => {
-      if (t.id === draggableId) {
-        return { ...t, status: destination.droppableId };
-      }
-      return t;
-    });
+    // Получаем текущие списки для расчета нового порядка
+    const destTasksSorted = tasksByStatus(destination.droppableId);
 
-    setLocalTasks(updatedLocalTasks);
+    // Удаляем задачу из текущего локального стейта для пересчета
+    const otherTasks = localTasks.filter((t) => t.id !== draggableId);
+
+    // Фильтруем задачи целевой колонки (без перемещаемой)
+    const targetColTasks = destTasksSorted.filter((t) => t.id !== draggableId);
+
+    let calculatedOrder: number;
+    const prevTask = targetColTasks[destination.index - 1];
+    const nextTask = targetColTasks[destination.index];
+
+    if (!prevTask && !nextTask) {
+      calculatedOrder = 1000;
+    } else if (!prevTask) {
+      calculatedOrder = nextTask.order / 2;
+    } else if (!nextTask) {
+      calculatedOrder = prevTask.order + 1000;
+    } else {
+      calculatedOrder = (prevTask.order + nextTask.order) / 2;
+    }
+
+    const updatedTask = { ...taskToMove, status: destination.droppableId, order: calculatedOrder };
+    setLocalTasks([...otherTasks, updatedTask]);
 
     // 2. Вызов API в фоновом режиме
     try {
       const res = await fetch(`/api/tasks/${draggableId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: destination.droppableId }),
+        body: JSON.stringify({
+          status: destination.droppableId,
+          order: calculatedOrder,
+        }),
       });
 
       if (res.ok) {
         onTaskAdded();
       } else {
-        // Если ошибка - возвращаем как было
         setLocalTasks(tasks);
       }
     } catch (err) {

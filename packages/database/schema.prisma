@@ -39,6 +39,7 @@ model Task {
   title       String   // Заголовок
   description String?  // Описание
   status      Status   @default(TODO) // Текущий статус
+  order       Float    @default(0)    // Порядок отображения (для сортировки)
   deadline    DateTime? // Крайний срок
   projectId   String   // ID проекта
   project     Project  @relation(fields: [projectId], references: [id]) // Связь с проектом

@@ -29,11 +29,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Проект не найден или нет доступа" }, { status: 403 });
     }
 
+    const lastTask = await prisma.task.findFirst({
+      where: { projectId, status: status || "TODO" },
+      orderBy: { order: "desc" },
+    });
+
+    const newOrder = lastTask ? lastTask.order + 1000 : 1000;
+
     const task = await prisma.task.create({
       data: {
         title,
         description,
         status: status || "TODO",
+        order: newOrder,
         projectId,
       },
     });

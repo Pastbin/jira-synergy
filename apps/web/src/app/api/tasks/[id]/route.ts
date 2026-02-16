@@ -13,7 +13,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   try {
     const body = await req.json();
-    const { status, title, description } = body;
+    const { status, title, description, order } = body;
 
     // Проверка прав доступа: редактировать задачу может только владелец проекта
     const task = await prisma.task.findUnique({
@@ -33,6 +33,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       where: { id },
       data: {
         status: status || undefined,
+        order: typeof order === "number" ? order : undefined,
         title: title || undefined,
         description: description || undefined,
       },
