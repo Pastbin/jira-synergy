@@ -2,14 +2,17 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { DragDropContext, DropResult } from "@hello-pangea/dnd";
+import { io, Socket } from "socket.io-client";
 import { BoardContainer } from "./kanban/BoardStyles";
 import { KanbanColumn } from "./kanban/KanbanColumn";
 import { TaskModal } from "./kanban/TaskModal";
 
+const SOCKET_SERVER_URL = "http://localhost:3001";
+
 interface Task {
   id: string;
   title: string;
-  description?: string;
+  description: string | null;
   status: string;
   order: number;
 }
@@ -36,9 +39,26 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded }: KanbanBoa
   const [editDescription, setEditDescription] = useState("");
   const [activeStatus, setActiveStatus] = useState("TODO");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [socket, setSocket] = useState<Socket | null>(null);
 
   // Локальное состояние задач для оптимистичного обновления
   const [localTasks, setLocalTasks] = useState<Task[]>(tasks);
+
+  // Настройка Socket.io
+  useEffect(() => {
+    const newSocket = io(SOCKET_SERVER_URL);
+    setSocket(newSocket);
+
+    newSocket.emit("join_project", projectId);
+
+    newSocket.on("task_updated", () => {
+      onTaskAdded();
+    });
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [projectId, onTaskAdded]);
 
   // Синхронизация при изменении внешних данных
   useEffect(() => {
@@ -118,8 +138,7 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded }: KanbanBoa
         // Откат при ошибке
         setLocalTasks(tasks);
       } else {
-        // Уведомляем родителя, но не сбрасываем локальный стейт,
-        // чтобы избежать мерцания (useEffect подхватит новые данные позже)
+        socket?.emit("task_moved", { projectId, taskId: draggableId });
         onTaskAdded();
       }
     } catch (err) {
@@ -145,6 +164,7 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded }: KanbanBoa
       });
 
       if (res.ok) {
+        socket?.emit("task_moved", { projectId });
         setIsModalOpen(false);
         onTaskAdded();
       }
@@ -171,6 +191,7 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded }: KanbanBoa
       });
 
       if (res.ok) {
+        socket?.emit("task_moved", { projectId });
         setIsModalOpen(false);
         onTaskAdded();
       }
@@ -192,6 +213,7 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded }: KanbanBoa
       });
 
       if (res.ok) {
+        socket?.emit("task_moved", { projectId });
         setIsModalOpen(false);
         onTaskAdded();
       }

@@ -5,7 +5,7 @@ import { ModalOverlay, Modal, Input, TextArea, DeleteButton, SubmitButton } from
 interface Task {
   id: string;
   title: string;
-  description?: string;
+  description: string | null;
   status: string;
   order: number;
 }

@@ -15,11 +15,25 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const project = await prisma.project.findFirst({
       where: {
         id: id,
-        ownerId: session.user.id, // Проверка прав доступа
+        OR: [{ ownerId: session.user.id }, { members: { some: { id: session.user.id } } }],
       },
       include: {
         tasks: {
           orderBy: { order: "asc" },
+        },
+        members: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
         },
       },
     });

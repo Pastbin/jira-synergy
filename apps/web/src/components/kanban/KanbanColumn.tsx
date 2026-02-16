@@ -7,7 +7,7 @@ import { TaskCard } from "./TaskCard";
 interface Task {
   id: string;
   title: string;
-  description?: string;
+  description: string | null;
   status: string;
   order: number;
 }

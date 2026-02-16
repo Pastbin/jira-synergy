@@ -15,7 +15,8 @@ model User {
   name          String?   // Имя пользователя
   email         String    @unique // Электронная почта (уникальная)
   password      String    // Хешированный пароль
-  projects      Project[] @relation("ProjectToUser") // Связь с проектами
+  ownedProjects Project[] @relation("ProjectOwner") // Проекты, где я создатель
+  memberProjects Project[] @relation("ProjectMembers") // Проекты, где я участник
   assignedTasks Task[]    @relation("AssignedTasks") // Связь с назначенными задачами
   createdAt     DateTime  @default(now()) // Дата создания
   updatedAt     DateTime  @updatedAt // Дата обновления
@@ -27,7 +28,8 @@ model Project {
   name        String   // Название
   description String?  // Описание
   ownerId     String   // ID владельца
-  owner       User     @relation("ProjectToUser", fields: [ownerId], references: [id]) // Связь с владельцем
+  owner       User     @relation("ProjectOwner", fields: [ownerId], references: [id]) // Связь с владельцем
+  members     User[]   @relation("ProjectMembers") // Список участников проекта
   tasks       Task[]   // Список задач в проекте
   createdAt   DateTime @default(now()) // Дата создания
   updatedAt   DateTime @updatedAt // Дата обновления

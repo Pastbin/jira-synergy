@@ -5,7 +5,7 @@ import { TaskCardWrapper } from "./BoardStyles";
 interface Task {
   id: string;
   title: string;
-  description?: string;
+  description: string | null;
   status: string;
   order: number;
 }

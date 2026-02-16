@@ -13,7 +13,9 @@ export async function GET() {
 
   try {
     const projects = await prisma.project.findMany({
-      where: { ownerId: session.user.id },
+      where: {
+        OR: [{ ownerId: session.user.id }, { members: { some: { id: session.user.id } } }],
+      },
       orderBy: { createdAt: "desc" },
     });
     return NextResponse.json(projects);
