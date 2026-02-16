@@ -1,128 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
-import styled from "styled-components";
-import { Plus, X } from "lucide-react";
-import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
-
-const BoardContainer = styled.div`
-  display: flex;
-  gap: 1rem;
-  padding: 1rem 0;
-  overflow-x: auto;
-  min-height: calc(100vh - 200px);
-`;
-
-const ColumnContainer = styled.div`
-  background-color: #f4f5f7;
-  border-radius: 8px;
-  width: 300px;
-  min-width: 300px;
-  display: flex;
-  flex-direction: column;
-  max-height: 100%;
-`;
-
-const ColumnHeader = styled.div`
-  padding: 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: 600;
-  color: #5e6c84;
-  text-transform: uppercase;
-  font-size: 0.75rem;
-`;
-
-const TaskList = styled.div`
-  padding: 8px;
-  flex: 1;
-  overflow-y: auto;
-`;
-
-const TaskCardWrapper = styled.div`
-  background: white;
-  border-radius: 4px;
-  padding: 12px;
-  margin-bottom: 8px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  cursor: pointer;
-  border: 1px solid transparent;
-
-  &:hover {
-    background-color: #f4f5f7;
-    border-color: #dfe1e6;
-  }
-`;
-
-const AddTaskButton = styled.button`
-  background: transparent;
-  border: none;
-  color: #42526e;
-  padding: 8px 12px;
-  text-align: left;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border-radius: 4px;
-  margin: 4px 8px 8px 8px;
-
-  &:hover {
-    background-color: rgba(9, 30, 66, 0.08);
-    color: #172b4d;
-  }
-`;
-
-const ModalOverlay = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-`;
-
-const Modal = styled.div`
-  background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  width: 400px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-`;
-
-const Input = styled.input`
-  width: 100%;
-  padding: 8px;
-  margin: 8px 0 16px 0;
-  border: 1px solid #dfe1e6;
-  border-radius: 4px;
-  &:focus {
-    outline: none;
-    border-color: #4c9aff;
-  }
-`;
-
-const SubmitButton = styled.button`
-  background-color: #0052cc;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  font-weight: 600;
-  cursor: pointer;
-  &:hover {
-    background-color: #0747a6;
-  }
-`;
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { DragDropContext, DropResult } from "@hello-pangea/dnd";
+import { BoardContainer } from "./kanban/BoardStyles";
+import { KanbanColumn } from "./kanban/KanbanColumn";
+import { TaskModal } from "./kanban/TaskModal";
 
 interface Task {
   id: string;
   title: string;
+  description?: string;
   status: string;
   order: number;
 }
@@ -143,49 +30,65 @@ const COLUMNS = [
 
 export default function KanbanBoard({ projectId, tasks, onTaskAdded }: KanbanBoardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
   const [activeStatus, setActiveStatus] = useState("TODO");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Локальное состояние задач для оптимистичного обновления
   const [localTasks, setLocalTasks] = useState<Task[]>(tasks);
 
-  // Синхронизация локального состояния при изменении пропсов
-  React.useEffect(() => {
+  // Синхронизация при изменении внешних данных
+  useEffect(() => {
     setLocalTasks(tasks);
   }, [tasks]);
 
-  const tasksByStatus = (status: string) =>
-    localTasks.filter((t) => t.status === status).sort((a, b) => a.order - b.order);
+  // Группировка и сортировка задач с мемоизацией
+  const tasksByStatusMap = useMemo(() => {
+    const map: Record<string, Task[]> = {};
+    COLUMNS.forEach((col) => {
+      map[col.id] = localTasks.filter((t) => t.status === col.id).sort((a, b) => a.order - b.order);
+    });
+    return map;
+  }, [localTasks]);
 
-  const handleOpenModal = (status: string) => {
+  const handleOpenCreateModal = useCallback((status: string) => {
     setActiveStatus(status);
+    setNewTaskTitle("");
+    setSelectedTask(null);
     setIsModalOpen(true);
-  };
+  }, []);
+
+  const handleOpenDetailModal = useCallback((task: Task) => {
+    setSelectedTask(task);
+    setEditTitle(task.title);
+    setEditDescription(task.description || "");
+    setIsModalOpen(true);
+  }, []);
 
   const onDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
 
     if (!destination) return;
 
+    // Если ничего не изменилось
     if (destination.droppableId === source.droppableId && destination.index === source.index) {
       return;
     }
 
-    // 1. Оптимистичное обновление локального состояния
     const taskToMove = localTasks.find((t) => t.id === draggableId);
     if (!taskToMove) return;
 
-    // Получаем текущие списки для расчета нового порядка
-    const destTasksSorted = tasksByStatus(destination.droppableId);
-
-    // Удаляем задачу из текущего локального стейта для пересчета
-    const otherTasks = localTasks.filter((t) => t.id !== draggableId);
-
-    // Фильтруем задачи целевой колонки (без перемещаемой)
-    const targetColTasks = destTasksSorted.filter((t) => t.id !== draggableId);
+    // Рассчитываем новый порядок
+    const destTasks = tasksByStatusMap[destination.droppableId] || [];
+    // Исключаем перемещаемую задачу из списка целевой колонки (если она там уже была)
+    const filteredDestTasks = destTasks.filter((t) => t.id !== draggableId);
 
     let calculatedOrder: number;
-    const prevTask = targetColTasks[destination.index - 1];
-    const nextTask = targetColTasks[destination.index];
+    const prevTask = filteredDestTasks[destination.index - 1];
+    const nextTask = filteredDestTasks[destination.index];
 
     if (!prevTask && !nextTask) {
       calculatedOrder = 1000;
@@ -197,10 +100,10 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded }: KanbanBoa
       calculatedOrder = (prevTask.order + nextTask.order) / 2;
     }
 
+    // Оптимистичное обновление
     const updatedTask = { ...taskToMove, status: destination.droppableId, order: calculatedOrder };
-    setLocalTasks([...otherTasks, updatedTask]);
+    setLocalTasks((prev) => prev.map((t) => (t.id === draggableId ? updatedTask : t)));
 
-    // 2. Вызов API в фоновом режиме
     try {
       const res = await fetch(`/api/tasks/${draggableId}`, {
         method: "PATCH",
@@ -211,10 +114,13 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded }: KanbanBoa
         }),
       });
 
-      if (res.ok) {
-        onTaskAdded();
-      } else {
+      if (!res.ok) {
+        // Откат при ошибке
         setLocalTasks(tasks);
+      } else {
+        // Уведомляем родителя, но не сбрасываем локальный стейт,
+        // чтобы избежать мерцания (useEffect подхватит новые данные позже)
+        onTaskAdded();
       }
     } catch (err) {
       console.error("Ошибка при перемещении задачи:", err);
@@ -239,12 +145,58 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded }: KanbanBoa
       });
 
       if (res.ok) {
-        setNewTaskTitle("");
         setIsModalOpen(false);
         onTaskAdded();
       }
     } catch (err) {
-      console.error(err);
+      console.error("Ошибка при создании задачи:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTask || !editTitle.trim()) return;
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/tasks/${selectedTask.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editTitle,
+          description: editDescription,
+        }),
+      });
+
+      if (res.ok) {
+        setIsModalOpen(false);
+        onTaskAdded();
+      }
+    } catch (err) {
+      console.error("Ошибка при обновлении задачи:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteTask = async () => {
+    if (!selectedTask) return;
+    if (!confirm("Вы уверены, что хотите удалить эту задачу?")) return;
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/tasks/${selectedTask.id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        setIsModalOpen(false);
+        onTaskAdded();
+      }
+    } catch (err) {
+      console.error("Ошибка при удалении задачи:", err);
     } finally {
       setIsSubmitting(false);
     }
@@ -254,71 +206,34 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded }: KanbanBoa
     <>
       <DragDropContext onDragEnd={onDragEnd}>
         <BoardContainer>
-          {COLUMNS.map((column) => (
-            <ColumnContainer key={column.id}>
-              <ColumnHeader>
-                {column.title} <span>{tasksByStatus(column.id).length}</span>
-              </ColumnHeader>
-              <Droppable droppableId={column.id}>
-                {(provided) => (
-                  <TaskList {...provided.droppableProps} ref={provided.innerRef}>
-                    {tasksByStatus(column.id).map((task, index) => (
-                      <Draggable key={task.id} draggableId={task.id} index={index}>
-                        {(provided) => (
-                          <TaskCardWrapper
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                          >
-                            <div style={{ fontSize: "0.9rem", color: "#172b4d" }}>{task.title}</div>
-                          </TaskCardWrapper>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </TaskList>
-                )}
-              </Droppable>
-              <AddTaskButton onClick={() => handleOpenModal(column.id)}>
-                <Plus size={16} /> Добавить задачу
-              </AddTaskButton>
-            </ColumnContainer>
+          {COLUMNS.map((col) => (
+            <KanbanColumn
+              key={col.id}
+              id={col.id}
+              title={col.title}
+              tasks={tasksByStatusMap[col.id] || []}
+              onAddTask={handleOpenCreateModal}
+              onTaskClick={handleOpenDetailModal}
+            />
           ))}
         </BoardContainer>
       </DragDropContext>
 
-      {isModalOpen && (
-        <ModalOverlay onClick={() => setIsModalOpen(false)}>
-          <Modal onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem" }}>
-              <h3 style={{ margin: 0 }}>Новая задача</h3>
-              <X size={20} style={{ cursor: "pointer" }} onClick={() => setIsModalOpen(false)} />
-            </div>
-            <form onSubmit={handleCreateTask}>
-              <label style={{ fontSize: "0.85rem", color: "#5e6c84" }}>Что нужно сделать?</label>
-              <Input
-                autoFocus
-                placeholder="Название задачи..."
-                value={newTaskTitle}
-                onChange={(e) => setNewTaskTitle(e.target.value)}
-                disabled={isSubmitting}
-              />
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  style={{ background: "none", border: "none", color: "#42526e", cursor: "pointer" }}
-                >
-                  Отмена
-                </button>
-                <SubmitButton type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? "..." : "Создать"}
-                </SubmitButton>
-              </div>
-            </form>
-          </Modal>
-        </ModalOverlay>
-      )}
+      <TaskModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        selectedTask={selectedTask}
+        newTaskTitle={newTaskTitle}
+        setNewTaskTitle={setNewTaskTitle}
+        editTitle={editTitle}
+        setEditTitle={setEditTitle}
+        editDescription={editDescription}
+        setEditDescription={setEditDescription}
+        isSubmitting={isSubmitting}
+        onCreate={handleCreateTask}
+        onUpdate={handleUpdateTask}
+        onDelete={handleDeleteTask}
+      />
     </>
   );
 }
