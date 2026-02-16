@@ -41,13 +41,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: "Пользователь с таким email не найден" }, { status: 404 });
     }
 
-    // Добавляем участника
-    await prisma.project.update({
-      where: { id },
+    // Добавляем участника с ролью (по умолчанию VIEWER)
+    await prisma.projectMember.create({
       data: {
-        members: {
-          connect: { id: userToAdd.id },
-        },
+        projectId: id,
+        userId: userToAdd.id,
+        role: "EDITOR", // По умолчанию даем EDITOR, чтобы могли двигать
       },
     });
 

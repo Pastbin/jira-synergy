@@ -8,6 +8,44 @@ export const BoardContainer = styled.div`
   min-height: calc(100vh - 200px);
 `;
 
+export const PresenceBar = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-bottom: 1rem;
+  align-items: center;
+`;
+
+export const UserAvatar = styled.div<{ $color?: string }>`
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: ${(props) => props.$color || "#091e420f"};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px #ebecf0;
+  position: relative;
+
+  &:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #172b4d;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    white-space: nowrap;
+    z-index: 10;
+  }
+`;
+
 export const ColumnContainer = styled.div`
   background-color: #f4f5f7;
   border-radius: 8px;

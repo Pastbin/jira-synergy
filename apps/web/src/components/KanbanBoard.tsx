@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { DragDropContext, DropResult } from "@hello-pangea/dnd";
 import { io, Socket } from "socket.io-client";
-import { BoardContainer } from "./kanban/BoardStyles";
+import { useSession } from "next-auth/react";
+import { BoardContainer, PresenceBar, UserAvatar } from "./kanban/BoardStyles";
 import { KanbanColumn } from "./kanban/KanbanColumn";
 import { TaskModal } from "./kanban/TaskModal";
 
@@ -21,6 +22,7 @@ interface KanbanBoardProps {
   projectId: string;
   tasks: Task[];
   onTaskAdded: () => void;
+  userRole: string;
 }
 
 const COLUMNS = [
@@ -31,7 +33,7 @@ const COLUMNS = [
   { id: "DONE", title: "Готово" },
 ];
 
-export default function KanbanBoard({ projectId, tasks, onTaskAdded }: KanbanBoardProps) {
+export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }: KanbanBoardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState("");
@@ -40,6 +42,8 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded }: KanbanBoa
   const [activeStatus, setActiveStatus] = useState("TODO");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
+  const { data: session } = useSession();
 
   // Локальное состояние задач для оптимистичного обновления
   const [localTasks, setLocalTasks] = useState<Task[]>(tasks);
@@ -49,16 +53,29 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded }: KanbanBoa
     const newSocket = io(SOCKET_SERVER_URL);
     setSocket(newSocket);
 
-    newSocket.emit("join_project", projectId);
+    if (session?.user) {
+      newSocket.emit("join_project", {
+        projectId,
+        user: {
+          id: session.user.id,
+          name: session.user.name,
+          email: session.user.email,
+        },
+      });
+    }
 
     newSocket.on("task_updated", () => {
       onTaskAdded();
     });
 
+    newSocket.on("users_updated", (users) => {
+      setOnlineUsers(users);
+    });
+
     return () => {
       newSocket.disconnect();
     };
-  }, [projectId, onTaskAdded]);
+  }, [projectId, onTaskAdded, session]);
 
   // Синхронизация при изменении внешних данных
   useEffect(() => {
@@ -75,6 +92,10 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded }: KanbanBoa
   }, [localTasks]);
 
   const handleOpenCreateModal = useCallback((status: string) => {
+    if (userRole === "VIEWER") {
+      alert("У вас нет прав для создания задач");
+      return;
+    }
     setActiveStatus(status);
     setNewTaskTitle("");
     setSelectedTask(null);
@@ -92,6 +113,12 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded }: KanbanBoa
     const { destination, source, draggableId } = result;
 
     if (!destination) return;
+
+    // Проверка прав на перемещение
+    if (userRole === "VIEWER") {
+      alert("У вас нет прав для редактирования этого проекта (только просмотр)");
+      return;
+    }
 
     // Если ничего не изменилось
     if (destination.droppableId === source.droppableId && destination.index === source.index) {
@@ -179,6 +206,11 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded }: KanbanBoa
     e.preventDefault();
     if (!selectedTask || !editTitle.trim()) return;
 
+    if (userRole === "VIEWER") {
+      alert("У вас нет прав для изменения задач");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const res = await fetch(`/api/tasks/${selectedTask.id}`, {
@@ -204,6 +236,10 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded }: KanbanBoa
 
   const handleDeleteTask = async () => {
     if (!selectedTask) return;
+    if (userRole === "VIEWER") {
+      alert("У вас нет прав для удаления задач");
+      return;
+    }
     if (!confirm("Вы уверены, что хотите удалить эту задачу?")) return;
 
     setIsSubmitting(true);
@@ -226,6 +262,22 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded }: KanbanBoa
 
   return (
     <>
+      <PresenceBar>
+        <span style={{ fontSize: "0.8rem", color: "#5e6c84", marginRight: "8px" }}>Сейчас в проекте:</span>
+        {onlineUsers.map((user, idx) => (
+          <UserAvatar
+            key={user.id + idx}
+            $color={["#0052cc", "#00875a", "#de350b", "#ff991f", "#5243aa"][idx % 5]}
+            title={user.name || user.email}
+          >
+            {(user.name || user.email || "?")[0].toUpperCase()}
+          </UserAvatar>
+        ))}
+        <span style={{ fontSize: "0.8rem", color: "#5e6c84", marginLeft: "12px" }}>
+          Ваша роль: <strong>{userRole}</strong>
+        </span>
+      </PresenceBar>
+
       <DragDropContext onDragEnd={onDragEnd}>
         <BoardContainer>
           {COLUMNS.map((col) => (

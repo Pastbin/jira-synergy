@@ -4,6 +4,7 @@ import { useState, useEffect, use } from "react";
 import styled from "styled-components";
 import { ChevronLeft, UserPlus } from "lucide-react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import KanbanBoard from "@/components/KanbanBoard";
 
@@ -62,6 +63,15 @@ interface Project {
   id: string;
   name: string;
   description: string | null;
+  ownerId: string;
+  members: Array<{
+    role: string;
+    user: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  }>;
   tasks: Array<{
     id: string;
     title: string;
@@ -73,6 +83,7 @@ interface Project {
 
 export default function ProjectDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const { data: session } = useSession();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -157,7 +168,16 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
         <p style={{ color: "#5e6c84" }}>{project.description || "Без описания"}</p>
       </div>
 
-      <KanbanBoard projectId={id} tasks={project.tasks || []} onTaskAdded={fetchProject} />
+      <KanbanBoard
+        projectId={id}
+        tasks={project.tasks || []}
+        onTaskAdded={fetchProject}
+        userRole={
+          project.ownerId === session?.user?.id
+            ? "ADMIN"
+            : project.members.find((m) => m.user.id === session?.user?.id)?.role || "VIEWER"
+        }
+      />
     </ProjectContainer>
   );
 }

@@ -19,24 +19,45 @@ const io = new Server(httpServer, {
   },
 });
 
+// Хранилище активных пользователей по проектам
+const projectUsers = new Map<string, Map<string, any>>();
+
 // Слушатель событий сокетов
 io.on("connection", (socket) => {
   console.log("Пользователь подключен:", socket.id);
 
-  // Обработка события перемещения задачи
-  socket.on("task_moved", (data) => {
-    // Рассылка обновлений всем участникам проекта
-    socket.to(data.projectId).emit("task_updated", data);
+  // Присоединение к комнате проекта
+  socket.on("join_project", ({ projectId, user }) => {
+    socket.join(projectId);
+
+    // Сохраняем информацию о пользователе
+    if (!projectUsers.has(projectId)) {
+      projectUsers.set(projectId, new Map());
+    }
+    projectUsers.get(projectId)?.set(socket.id, user);
+
+    // Уведомляем всех в комнате об обновлении списка пользователей
+    const usersInProject = Array.from(projectUsers.get(projectId)?.values() || []);
+    io.to(projectId).emit("users_updated", usersInProject);
+
+    console.log(`Пользователь ${user.name} вошел в проект ${projectId}`);
   });
 
-  // Присоединение к комнате проекта
-  socket.on("join_project", (projectId) => {
-    socket.join(projectId);
-    console.log(`Пользователь ${socket.id} вошел в проект ${projectId}`);
+  // Обработка события перемещения задачи
+  socket.on("task_moved", (data) => {
+    socket.to(data.projectId).emit("task_updated", data);
   });
 
   // Событие отключения
   socket.on("disconnect", () => {
+    // Находим в каких проектах был пользователь и удаляем
+    projectUsers.forEach((users, projectId) => {
+      if (users.has(socket.id)) {
+        users.delete(socket.id);
+        const usersInProject = Array.from(users.values());
+        io.to(projectId).emit("users_updated", usersInProject);
+      }
+    });
     console.log("Пользователь отключен");
   });
 });
