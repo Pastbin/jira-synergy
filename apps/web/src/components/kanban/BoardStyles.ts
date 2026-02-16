@@ -129,23 +129,51 @@ export const ModalOverlay = styled.div`
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.15s ease-out;
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
 `;
 
 export const Modal = styled.div`
   background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
+  padding: 24px;
+  border-radius: 12px;
   width: 500px;
   max-width: 95%;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 20px 40px -12px rgba(9, 30, 66, 0.25),
+    0 0 1px rgba(9, 30, 66, 0.31);
+  animation: slideUp 0.2s ease-out;
+
+  @keyframes slideUp {
+    from {
+      transform: translateY(20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
 `;
 
 export const Input = styled.input`
   width: 100%;
-  padding: 8px;
-  margin: 4px 0 16px 0;
-  border: 1px solid #dfe1e6;
-  border-radius: 4px;
+  padding: 10px 12px;
+  margin: 8px 0 20px 0;
+  border: 2px solid #dfe1e6;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.2s;
+
   &:focus {
     outline: none;
     border-color: #4c9aff;
@@ -155,16 +183,20 @@ export const Input = styled.input`
 
 export const TextArea = styled.textarea`
   width: 100%;
-  padding: 8px;
-  margin: 4px 0 16px 0;
-  border: 1px solid #dfe1e6;
-  border-radius: 4px;
+  padding: 10px 12px;
+  margin: 8px 0 20px 0;
+  border: 2px solid #dfe1e6;
+  border-radius: 6px;
   min-height: 120px;
   resize: vertical;
   font-family: inherit;
+  font-size: 14px;
+  transition: all 0.2s;
+
   &:focus {
     outline: none;
     border-color: #4c9aff;
+    box-shadow: 0 0 0 2px rgba(76, 154, 255, 0.2);
   }
 `;
 
@@ -174,14 +206,19 @@ export const SubmitButton = styled.button`
   border: none;
   padding: 8px 16px;
   border-radius: 4px;
-  font-weight: 600;
+  font-weight: 500;
+  font-size: 14px;
   cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  transition: all 0.2s;
+
   &:hover {
     background-color: #0747a6;
   }
+
   &:disabled {
     background-color: #ebecf0;
     color: #a5adba;
@@ -190,17 +227,54 @@ export const SubmitButton = styled.button`
 `;
 
 export const DeleteButton = styled.button`
-  background-color: #de350b;
-  color: white;
+  background-color: #ffebe6;
+  color: #bf2600;
   border: none;
   padding: 8px 16px;
   border-radius: 4px;
-  font-weight: 600;
+  font-weight: 500;
+  font-size: 14px;
   cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  transition: all 0.2s;
+
   &:hover {
-    background-color: #bf2600;
+    background-color: #ffbdad;
+  }
+`;
+
+export const Toast = styled.div<{ $type?: "success" | "error" | "warning" }>`
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: ${(props) => {
+    if (props.$type === "error") return "#DE350B";
+    if (props.$type === "warning") return "#FFAB00";
+    return "#36B37E";
+  }};
+  color: ${(props) => (props.$type === "warning" ? "#172B4D" : "white")};
+  padding: 12px 24px;
+  border-radius: 8px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 2000;
+  font-weight: 500;
+  animation: slideUpToast 0.3s ease-out;
+
+  @keyframes slideUpToast {
+    from {
+      transform: translate(-50%, 20px);
+      opacity: 0;
+    }
+    to {
+      transform: translate(-50%, 0);
+      opacity: 1;
+    }
   }
 `;

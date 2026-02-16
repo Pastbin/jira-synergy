@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import KanbanBoard from "@/components/KanbanBoard";
+import { getSocket } from "@/lib/socket";
 
 // Контейнер страницы проекта
 const ProjectContainer = styled.div`
@@ -27,23 +28,63 @@ const InviteForm = styled.form`
 `;
 
 const InviteInput = styled.input`
-  padding: 6px 12px;
-  border: 1px solid #dfe1e6;
-  border-radius: 4px;
+  padding: 8px 12px;
+  border: 2px solid #dfe1e6;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+  &:focus {
+    outline: none;
+    border-color: #4c9aff;
+  }
 `;
 
 const InviteButton = styled.button`
   background: #0052cc;
   color: white;
   border: none;
-  padding: 6px 12px;
-  border-radius: 4px;
+  padding: 8px 16px;
+  border-radius: 6px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
+  font-weight: 600;
+  transition: background 0.2s;
   &:hover {
     background: #0747a6;
+  }
+  &:disabled {
+    background: #ebecf0;
+    color: #a5adba;
+    cursor: not-allowed;
+  }
+`;
+
+const SuccessToast = styled.div`
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #36b37e;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: slideIn 0.3s ease-out;
+  z-index: 2000;
+
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
   }
 `;
 
@@ -88,6 +129,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
+  const [showToast, setShowToast] = useState(false);
 
   const fetchProject = async () => {
     const res = await fetch(`/api/projects/${id}`);
@@ -109,7 +151,22 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
         body: JSON.stringify({ email: inviteEmail }),
       });
       if (res.ok) {
-        alert("Участник добавлен!");
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+
+        // Отправляем уведомление через сокеты
+        if (project) {
+          const socket = getSocket();
+          socket.emit("notify_invite", {
+            email: inviteEmail,
+            project: {
+              id: project.id,
+              name: project.name,
+              description: project.description,
+            },
+          });
+        }
+
         setInviteEmail("");
         fetchProject();
       } else {
@@ -178,6 +235,8 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
             : project.members.find((m) => m.user.id === session?.user?.id)?.role || "VIEWER"
         }
       />
+
+      {showToast && <SuccessToast>Участник успешно приглашен в проект!</SuccessToast>}
     </ProjectContainer>
   );
 }

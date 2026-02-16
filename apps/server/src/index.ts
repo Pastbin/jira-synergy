@@ -26,6 +26,15 @@ const projectUsers = new Map<string, Map<string, any>>();
 io.on("connection", (socket) => {
   console.log("Пользователь подключен:", socket.id);
 
+  // Присоединение к персональной комнате пользователя (по email)
+  // Это нужно для получения глобальных уведомлений (например, о новом проекте)
+  socket.on("authenticate", (user) => {
+    if (user?.email) {
+      socket.join(`user:${user.email}`);
+      console.log(`Пользователь ${user.email} аутентифицирован в сокете`);
+    }
+  });
+
   // Присоединение к комнате проекта
   socket.on("join_project", ({ projectId, user }) => {
     socket.join(projectId);
@@ -46,6 +55,12 @@ io.on("connection", (socket) => {
   // Обработка события перемещения задачи
   socket.on("task_moved", (data) => {
     socket.to(data.projectId).emit("task_updated", data);
+  });
+
+  // Уведомление пользователя о том, что его добавили в проект
+  socket.on("notify_invite", ({ email, project }) => {
+    console.log(`Отправка уведомления для ${email} о проекте ${project.name}`);
+    io.to(`user:${email}`).emit("project_added", project);
   });
 
   // Событие отключения

@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import styled from "styled-components";
 import { Plus } from "lucide-react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import { getSocket } from "@/lib/socket";
 
 const MainContent = styled.div`
   padding: 2rem;
@@ -54,26 +56,119 @@ const CreateButton = styled.button`
   }
 `;
 
-// Модальное окно (упрощенное)
+// Модальное окно (современный Jira-стиль)
 const ModalOverlay = styled.div`
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(9, 30, 66, 0.54);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.15s ease-out;
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
 `;
 
 const Modal = styled.div`
   background: white;
-  padding: 2rem;
-  border-radius: 8px;
+  padding: 24px;
+  border-radius: 12px;
   width: 100%;
   max-width: 500px;
+  box-shadow:
+    0 20px 40px -12px rgba(9, 30, 66, 0.25),
+    0 0 1px rgba(9, 30, 66, 0.31);
+  animation: slideUp 0.2s ease-out;
+
+  @keyframes slideUp {
+    from {
+      transform: translateY(20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+`;
+
+const FormLabel = styled.label`
+  display: block;
+  font-size: 0.85rem;
+  color: #5e6c84;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+`;
+
+const FormInput = styled.input`
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #dfe1e6;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.2s;
+
+  &:focus {
+    outline: none;
+    border-color: #4c9aff;
+    box-shadow: 0 0 0 2px rgba(76, 154, 255, 0.2);
+  }
+`;
+
+const FormTextArea = styled.textarea`
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #dfe1e6;
+  border-radius: 6px;
+  min-height: 120px;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+  transition: all 0.2s;
+
+  &:focus {
+    outline: none;
+    border-color: #4c9aff;
+    box-shadow: 0 0 0 2px rgba(76, 154, 255, 0.2);
+  }
+`;
+
+const Notification = styled.div`
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #172b4d;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 30px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  z-index: 2000;
+  animation: slideUpFade 0.3s ease-out;
+
+  @keyframes slideUpFade {
+    from {
+      transform: translate(-50%, 20px);
+      opacity: 0;
+    }
+    to {
+      transform: translate(-50%, 0);
+      opacity: 1;
+    }
+  }
 `;
 
 interface Project {
@@ -83,15 +178,38 @@ interface Project {
 }
 
 export default function ProjectsPage() {
+  const { data: session } = useSession();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newProject, setNewProject] = useState({ name: "", description: "" });
   const [loading, setLoading] = useState(true);
+  const [notification, setNotification] = useState<string | null>(null);
 
   // Загрузка списка проектов при инициализации
   useEffect(() => {
     fetchProjects();
-  }, []);
+
+    // Настройка сокетов для получения уведомлений в реальном времени
+    const socket = getSocket();
+
+    if (session?.user?.email) {
+      socket.emit("authenticate", { email: session.user.email });
+
+      socket.on("project_added", (project: Project) => {
+        setProjects((prev) => {
+          // Избегаем дубликатов
+          if (prev.some((p) => p.id === project.id)) return prev;
+          return [project, ...prev];
+        });
+        setNotification(`Вас добавили в новый проект: "${project.name}"`);
+        setTimeout(() => setNotification(null), 5000);
+      });
+    }
+
+    return () => {
+      socket.off("project_added");
+    };
+  }, [session]);
 
   const fetchProjects = async () => {
     const res = await fetch("/api/projects");
@@ -151,48 +269,64 @@ export default function ProjectsPage() {
       )}
 
       {isModalOpen && (
-        <ModalOverlay>
-          <Modal>
-            <h2>Новый проект</h2>
-            <form onSubmit={handleCreateProject} style={{ marginTop: "1rem" }}>
-              <div style={{ marginBottom: "1rem" }}>
-                <label style={{ display: "block", marginBottom: "0.5rem" }}>Название</label>
-                <input
+        <ModalOverlay onClick={() => setIsModalOpen(false)}>
+          <Modal onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ color: "#172b4d", marginBottom: "1.5rem" }}>Новый проект</h2>
+            <form onSubmit={handleCreateProject}>
+              <div style={{ marginBottom: "1.5rem" }}>
+                <FormLabel>Название проекта</FormLabel>
+                <FormInput
                   type="text"
-                  style={{ width: "100%", padding: "0.5rem", borderRadius: "4px", border: "1px solid #ddd" }}
+                  placeholder="Назовите ваш проект..."
                   value={newProject.name}
                   onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
                   required
+                  autoFocus
                 />
               </div>
-              <div style={{ marginBottom: "1rem" }}>
-                <label style={{ display: "block", marginBottom: "0.5rem" }}>Описание</label>
-                <textarea
-                  style={{
-                    width: "100%",
-                    padding: "0.5rem",
-                    borderRadius: "4px",
-                    border: "1px solid #ddd",
-                    minHeight: "100px",
-                  }}
+              <div style={{ marginBottom: "1.5rem" }}>
+                <FormLabel>Описание</FormLabel>
+                <FormTextArea
+                  placeholder="Расскажите немного о целях проекта..."
                   value={newProject.description}
                   onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
                 />
               </div>
-              <div style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "12px",
+                  justifyContent: "flex-end",
+                  marginTop: "2rem",
+                  paddingTop: "1.5rem",
+                  borderTop: "1px solid #ebecf0",
+                }}
+              >
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  style={{ padding: "0.5rem 1rem", background: "#ebecf0", border: "none", borderRadius: "4px" }}
+                  style={{
+                    padding: "10px 16px",
+                    background: "none",
+                    border: "none",
+                    borderRadius: "6px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    color: "#42526e",
+                  }}
+                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#ebecf0")}
+                  onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                 >
                   Отмена
                 </button>
-                <CreateButton type="submit">Создать</CreateButton>
+                <CreateButton type="submit">Создать проект</CreateButton>
               </div>
             </form>
           </Modal>
         </ModalOverlay>
       )}
+
+      {notification && <Notification>{notification}</Notification>}
     </MainContent>
   );
 }

@@ -2,13 +2,12 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { DragDropContext, DropResult } from "@hello-pangea/dnd";
-import { io, Socket } from "socket.io-client";
 import { useSession } from "next-auth/react";
-import { BoardContainer, PresenceBar, UserAvatar } from "./kanban/BoardStyles";
+import { getSocket } from "@/lib/socket";
+import { BoardContainer, PresenceBar, UserAvatar, Toast } from "./kanban/BoardStyles";
 import { KanbanColumn } from "./kanban/KanbanColumn";
 import { TaskModal } from "./kanban/TaskModal";
-
-const SOCKET_SERVER_URL = "http://localhost:3001";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 
 interface Task {
   id: string;
@@ -41,20 +40,20 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
   const [editDescription, setEditDescription] = useState("");
   const [activeStatus, setActiveStatus] = useState("TODO");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [socket, setSocket] = useState<Socket | null>(null);
   const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
+  const [notification, setNotification] = useState<{ message: string; type: "success" | "error" | "warning" } | null>(
+    null,
+  );
   const { data: session } = useSession();
+  const socket = getSocket();
 
   // Локальное состояние задач для оптимистичного обновления
   const [localTasks, setLocalTasks] = useState<Task[]>(tasks);
 
   // Настройка Socket.io
   useEffect(() => {
-    const newSocket = io(SOCKET_SERVER_URL);
-    setSocket(newSocket);
-
     if (session?.user) {
-      newSocket.emit("join_project", {
+      socket.emit("join_project", {
         projectId,
         user: {
           id: session.user.id,
@@ -64,18 +63,20 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
       });
     }
 
-    newSocket.on("task_updated", () => {
+    socket.on("task_updated", () => {
       onTaskAdded();
     });
 
-    newSocket.on("users_updated", (users) => {
+    socket.on("users_updated", (users) => {
       setOnlineUsers(users);
     });
 
     return () => {
-      newSocket.disconnect();
+      // Отписываемся от событий, но не разрываем соединение полностью
+      socket.off("task_updated");
+      socket.off("users_updated");
     };
-  }, [projectId, onTaskAdded, session]);
+  }, [projectId, onTaskAdded, session, socket]);
 
   // Синхронизация при изменении внешних данных
   useEffect(() => {
@@ -91,9 +92,14 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
     return map;
   }, [localTasks]);
 
+  const showToast = (message: string, type: "success" | "error" | "warning" = "success") => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
   const handleOpenCreateModal = useCallback((status: string) => {
     if (userRole === "VIEWER") {
-      alert("У вас нет прав для создания задач");
+      showToast("У вас нет прав для создания задач", "warning");
       return;
     }
     setActiveStatus(status);
@@ -116,7 +122,7 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
 
     // Проверка прав на перемещение
     if (userRole === "VIEWER") {
-      alert("У вас нет прав для редактирования этого проекта (только просмотр)");
+      showToast("У вас нет прав для перемещения задач", "warning");
       return;
     }
 
@@ -164,6 +170,8 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
       if (!res.ok) {
         // Откат при ошибке
         setLocalTasks(tasks);
+        const data = await res.json();
+        showToast(data.error || "Ошибка при сохранении", "error");
       } else {
         socket?.emit("task_moved", { projectId, taskId: draggableId });
         onTaskAdded();
@@ -194,9 +202,14 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
         socket?.emit("task_moved", { projectId });
         setIsModalOpen(false);
         onTaskAdded();
+        showToast("Задача создана");
+      } else {
+        const data = await res.json();
+        showToast(data.error || "Ошибка при создании", "error");
       }
     } catch (err) {
       console.error("Ошибка при создании задачи:", err);
+      showToast("Ошибка сети", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -207,7 +220,7 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
     if (!selectedTask || !editTitle.trim()) return;
 
     if (userRole === "VIEWER") {
-      alert("У вас нет прав для изменения задач");
+      showToast("У вас нет прав для изменения задач", "warning");
       return;
     }
 
@@ -226,9 +239,14 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
         socket?.emit("task_moved", { projectId });
         setIsModalOpen(false);
         onTaskAdded();
+        showToast("Задача успешно обновлена");
+      } else {
+        const data = await res.json();
+        showToast(data.error || "Ошибка при обновлении", "error");
       }
     } catch (err) {
       console.error("Ошибка при обновлении задачи:", err);
+      showToast("Ошибка сети", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -237,7 +255,7 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
   const handleDeleteTask = async () => {
     if (!selectedTask) return;
     if (userRole === "VIEWER") {
-      alert("У вас нет прав для удаления задач");
+      showToast("У вас нет прав для удаления задач", "warning");
       return;
     }
     if (!confirm("Вы уверены, что хотите удалить эту задачу?")) return;
@@ -252,9 +270,14 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
         socket?.emit("task_moved", { projectId });
         setIsModalOpen(false);
         onTaskAdded();
+        showToast("Задача удалена");
+      } else {
+        const data = await res.json();
+        showToast(data.error || "Ошибка при удалении", "error");
       }
     } catch (err) {
       console.error("Ошибка при удалении задачи:", err);
+      showToast("Ошибка сети", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -308,6 +331,14 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
         onUpdate={handleUpdateTask}
         onDelete={handleDeleteTask}
       />
+
+      {notification && (
+        <Toast $type={notification.type}>
+          {notification.type === "success" && <CheckCircle2 size={18} />}
+          {notification.type !== "success" && <AlertCircle size={18} />}
+          {notification.message}
+        </Toast>
+      )}
     </>
   );
 }

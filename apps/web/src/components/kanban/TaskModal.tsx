@@ -46,25 +46,64 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   return (
     <ModalOverlay onClick={onClose}>
       <Modal onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem" }}>
-          <h3 style={{ margin: 0 }}>{selectedTask ? "Редактирование задачи" : "Новая задача"}</h3>
-          <X size={20} style={{ cursor: "pointer" }} onClick={onClose} />
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1.5rem", alignItems: "center" }}>
+          <h3 style={{ margin: 0, fontSize: "1.25rem", color: "#172b4d" }}>
+            {selectedTask ? "Редактирование задачи" : "Новая задача"}
+          </h3>
+          <button
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "#6b778c",
+              padding: "4px",
+              borderRadius: "4px",
+              display: "flex",
+              alignItems: "center",
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#ebecf0")}
+            onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+          >
+            <X size={20} />
+          </button>
         </div>
 
         {selectedTask ? (
           <form onSubmit={onUpdate}>
-            <label style={{ fontSize: "0.85rem", color: "#5e6c84", fontWeight: 600 }}>Название</label>
-            <Input autoFocus value={editTitle} onChange={(e) => setEditTitle(e.target.value)} disabled={isSubmitting} />
+            <div style={{ marginBottom: "1.5rem" }}>
+              <label style={{ fontSize: "0.85rem", color: "#5e6c84", fontWeight: 700, textTransform: "uppercase" }}>
+                Название
+              </label>
+              <Input
+                autoFocus
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                disabled={isSubmitting}
+              />
+            </div>
 
-            <label style={{ fontSize: "0.85rem", color: "#5e6c84", fontWeight: 600 }}>Описание</label>
-            <TextArea
-              placeholder="Добавьте описание задачи..."
-              value={editDescription}
-              onChange={(e) => setEditDescription(e.target.value)}
-              disabled={isSubmitting}
-            />
+            <div style={{ marginBottom: "1.5rem" }}>
+              <label style={{ fontSize: "0.85rem", color: "#5e6c84", fontWeight: 700, textTransform: "uppercase" }}>
+                Описание
+              </label>
+              <TextArea
+                placeholder="Добавьте описание задачи..."
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                disabled={isSubmitting}
+              />
+            </div>
 
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "1rem" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginTop: "2rem",
+                paddingTop: "1.5rem",
+                borderTop: "1px solid #ebecf0",
+              }}
+            >
               <DeleteButton type="button" onClick={onDelete} disabled={isSubmitting}>
                 <Trash2 size={16} /> Удалить
               </DeleteButton>
@@ -72,36 +111,71 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 <button
                   type="button"
                   onClick={onClose}
-                  style={{ background: "none", border: "none", color: "#42526e", cursor: "pointer" }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#42526e",
+                    cursor: "pointer",
+                    padding: "8px 12px",
+                    borderRadius: "4px",
+                    fontWeight: 500,
+                    fontSize: "14px",
+                  }}
+                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#ebecf0")}
+                  onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                 >
                   Отмена
                 </button>
                 <SubmitButton type="submit" disabled={isSubmitting}>
-                  <Save size={16} /> {isSubmitting ? "Сохранение..." : "Сохранить"}
+                  <Save size={16} /> {isSubmitting ? "..." : "Сохранить"}
                 </SubmitButton>
               </div>
             </div>
           </form>
         ) : (
           <form onSubmit={onCreate}>
-            <label style={{ fontSize: "0.85rem", color: "#5e6c84" }}>Что нужно сделать?</label>
-            <Input
-              autoFocus
-              placeholder="Название задачи..."
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              disabled={isSubmitting}
-            />
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+            <div style={{ marginBottom: "1.5rem" }}>
+              <label style={{ fontSize: "0.85rem", color: "#5e6c84", fontWeight: 700, textTransform: "uppercase" }}>
+                Что нужно сделать?
+              </label>
+              <Input
+                autoFocus
+                placeholder="Например: Исправить баг в навигации"
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                disabled={isSubmitting}
+              />
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "8px",
+                marginTop: "1.5rem",
+                paddingTop: "1rem",
+                borderTop: "1px solid #ebecf0",
+              }}
+            >
               <button
                 type="button"
                 onClick={onClose}
-                style={{ background: "none", border: "none", color: "#42526e", cursor: "pointer" }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#42526e",
+                  cursor: "pointer",
+                  fontWeight: 500,
+                  fontSize: "14px",
+                  padding: "8px 12px",
+                  borderRadius: "4px",
+                }}
+                onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#ebecf0")}
+                onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
               >
                 Отмена
               </button>
               <SubmitButton type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "..." : "Создать"}
+                {isSubmitting ? "..." : "Создать задачу"}
               </SubmitButton>
             </div>
           </form>
