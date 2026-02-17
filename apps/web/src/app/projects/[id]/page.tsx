@@ -118,7 +118,13 @@ interface Project {
     title: string;
     description: string | null;
     status: string;
+    priority: string;
     order: number;
+    assignees: Array<{
+      id: string;
+      name: string | null;
+      email: string;
+    }>;
   }>;
 }
 

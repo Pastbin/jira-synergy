@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { DragDropContext, DropResult } from "@hello-pangea/dnd";
 import { useSession } from "next-auth/react";
 import { getSocket } from "@/lib/socket";
-import { BoardContainer, PresenceBar, UserAvatar, Toast } from "./kanban/BoardStyles";
+import { BoardContainer, PresenceBar, UserAvatar, Toast, OnlineBadge } from "./kanban/BoardStyles";
 import { KanbanColumn } from "./kanban/KanbanColumn";
 import { TaskModal } from "./kanban/TaskModal";
 import { ConfirmModal } from "./ui/ConfirmModal";
@@ -15,7 +15,9 @@ interface Task {
   title: string;
   description: string | null;
   status: string;
+  priority: string;
   order: number;
+  assignees: { id: string; name: string | null; email: string }[];
 }
 
 interface KanbanBoardProps {
@@ -26,11 +28,11 @@ interface KanbanBoardProps {
 }
 
 const COLUMNS = [
-  { id: "TODO", title: "К выполнению" },
-  { id: "IN_PROGRESS", title: "В работе" },
-  { id: "REVIEW", title: "Ревью" },
-  { id: "TESTING", title: "Тестирование" },
-  { id: "DONE", title: "Готово" },
+  { id: "TODO", title: "К выполнению", color: "#EAE6FF" },
+  { id: "IN_PROGRESS", title: "В работе", color: "#DEEBFF" },
+  { id: "REVIEW", title: "Ревью", color: "#FFF0B3" },
+  { id: "TESTING", title: "Тестирование", color: "#E3FCEF" },
+  { id: "DONE", title: "Готово", color: "#D4F1E1" },
 ];
 
 export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }: KanbanBoardProps) {
@@ -39,10 +41,13 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editPriority, setEditPriority] = useState("MEDIUM");
+  const [editAssigneeIds, setEditAssigneeIds] = useState<string[]>([]);
   const [activeStatus, setActiveStatus] = useState("TODO");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
+  const [projectMembers, setProjectMembers] = useState<any[]>([]);
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" | "warning" } | null>(
     null,
   );
@@ -51,6 +56,23 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
 
   // Локальное состояние задач для оптимистичного обновления
   const [localTasks, setLocalTasks] = useState<Task[]>(tasks);
+
+  // Загрузка участников проекта
+  const fetchMembers = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/members`);
+      if (res.ok) {
+        const data = await res.json();
+        setProjectMembers(data);
+      }
+    } catch (err) {
+      console.error("Ошибка при загрузке участников:", err);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    fetchMembers();
+  }, [fetchMembers]);
 
   // Настройка Socket.io
   useEffect(() => {
@@ -99,21 +121,29 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
     setTimeout(() => setNotification(null), 3000);
   };
 
-  const handleOpenCreateModal = useCallback((status: string) => {
-    if (userRole === "VIEWER") {
-      showToast("У вас нет прав для создания задач", "warning");
-      return;
-    }
-    setActiveStatus(status);
-    setNewTaskTitle("");
-    setSelectedTask(null);
-    setIsModalOpen(true);
-  }, []);
+  const handleOpenCreateModal = useCallback(
+    (status: string) => {
+      if (userRole === "VIEWER") {
+        showToast("У вас нет прав для создания задач", "warning");
+        return;
+      }
+      setActiveStatus(status);
+      setNewTaskTitle("");
+      setEditDescription("");
+      setEditPriority("MEDIUM");
+      setEditAssigneeIds([]);
+      setSelectedTask(null);
+      setIsModalOpen(true);
+    },
+    [userRole],
+  );
 
   const handleOpenDetailModal = useCallback((task: Task) => {
     setSelectedTask(task);
     setEditTitle(task.title);
     setEditDescription(task.description || "");
+    setEditPriority(task.priority || "MEDIUM");
+    setEditAssigneeIds(task.assignees?.map((a) => a.id) || []);
     setIsModalOpen(true);
   }, []);
 
@@ -195,8 +225,11 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: newTaskTitle,
+          description: editDescription,
           status: activeStatus,
+          priority: editPriority,
           projectId,
+          assigneeIds: editAssigneeIds,
         }),
       });
 
@@ -234,6 +267,8 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
         body: JSON.stringify({
           title: editTitle,
           description: editDescription,
+          priority: editPriority,
+          assigneeIds: editAssigneeIds,
         }),
       });
 
@@ -290,19 +325,27 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
     }
   };
 
+  const onlineUserIds = useMemo(() => new Set(onlineUsers.map((u) => u.id)), [onlineUsers]);
+
   return (
     <>
       <PresenceBar>
-        <span style={{ fontSize: "0.8rem", color: "#5e6c84", marginRight: "8px" }}>Сейчас в проекте:</span>
-        {onlineUsers.map((user, idx) => (
-          <UserAvatar
-            key={user.id + idx}
-            $color={["#0052cc", "#00875a", "#de350b", "#ff991f", "#5243aa"][idx % 5]}
-            title={user.name || user.email}
-          >
-            {(user.name || user.email || "?")[0].toUpperCase()}
-          </UserAvatar>
-        ))}
+        <span style={{ fontSize: "0.8rem", color: "#5e6c84", marginRight: "8px" }}>Команда:</span>
+        {projectMembers.map((member, idx) => {
+          const isUserOnline = onlineUserIds.has(member.id);
+          return (
+            <div key={member.id} style={{ position: "relative" }}>
+              <UserAvatar
+                $color={["#0052cc", "#00875a", "#de350b", "#ff991f", "#5243aa"][idx % 5]}
+                title={`${member.name || member.email} (${isUserOnline ? "В сети" : "Не в сети"})`}
+                style={{ opacity: isUserOnline ? 1 : 0.6, filter: isUserOnline ? "none" : "grayscale(0.5)" }}
+              >
+                {(member.name || member.email || "?")[0].toUpperCase()}
+              </UserAvatar>
+              <OnlineBadge $isOnline={isUserOnline} />
+            </div>
+          );
+        })}
         <span style={{ fontSize: "0.8rem", color: "#5e6c84", marginLeft: "12px" }}>
           Ваша роль: <strong>{userRole}</strong>
         </span>
@@ -334,6 +377,11 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
         setEditTitle={setEditTitle}
         editDescription={editDescription}
         setEditDescription={setEditDescription}
+        editPriority={editPriority}
+        setEditPriority={setEditPriority}
+        editAssigneeIds={editAssigneeIds}
+        setEditAssigneeIds={setEditAssigneeIds}
+        projectMembers={projectMembers}
         isSubmitting={isSubmitting}
         onCreate={handleCreateTask}
         onUpdate={handleUpdateTask}

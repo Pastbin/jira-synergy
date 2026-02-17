@@ -415,3 +415,106 @@ export const DangerIcon = styled.div`
   display: flex;
   justify-content: center;
 `;
+
+export const PriorityBadge = styled.span<{ $priority: string }>`
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background-color: ${(props) => {
+    switch (props.$priority) {
+      case "LOW":
+        return "#E3FCEF";
+      case "MEDIUM":
+        return "#FFF0B3";
+      case "HIGH":
+        return "#FFEBE6";
+      case "URGENT":
+        return "#DE350B";
+      default:
+        return "#F4F5F7";
+    }
+  }};
+  color: ${(props) => {
+    switch (props.$priority) {
+      case "LOW":
+        return "#006644";
+      case "MEDIUM":
+        return "#827100";
+      case "HIGH":
+        return "#BF2600";
+      case "URGENT":
+        return "#FFFFFF";
+      default:
+        return "#42526E";
+    }
+  }};
+`;
+
+export const StatusBadge = styled.span<{ $status: string }>`
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  ${(props) => {
+    switch (props.$status) {
+      case "TODO":
+        return `background-color: #EAE6FF; color: #403294;`;
+      case "IN_PROGRESS":
+        return `background-color: #DEEBFF; color: #0052CC;`;
+      case "REVIEW":
+        return `background-color: #FFF0B3; color: #172B4D;`;
+      case "TESTING":
+        return `background-color: #E3FCEF; color: #006644;`;
+      case "DONE":
+        return `background-color: #D4F1E1; color: #00875A;`;
+      default:
+        return `background-color: #F4F5F7; color: #42526E;`;
+    }
+  }}
+`;
+
+export const OnlineBadge = styled.div<{ $isOnline: boolean }>`
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid white;
+  background-color: ${(props) => (props.$isOnline ? "#36B37E" : "#97A0AF")};
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  transition: all 0.2s;
+`;
+
+export const AssigneeList = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+`;
+
+export const AssigneeItem = styled.div<{ $selected?: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: ${(props) => (props.$selected ? "#DEEBFF" : "#f4f5f7")};
+  border: 2px solid ${(props) => (props.$selected ? "#0052cc" : "transparent")};
+  cursor: pointer;
+  transition: all 0.1s;
+  font-size: 13px;
+
+  &:hover {
+    background: ${(props) => (props.$selected ? "#DEEBFF" : "#ebecf0")};
+  }
+`;

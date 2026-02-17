@@ -11,22 +11,25 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { title, description, status, projectId } = await req.json();
+    const { title, description, status, projectId, priority, assigneeIds } = await req.json();
 
     if (!title || !projectId) {
       return NextResponse.json({ error: "Название и ID проекта обязательны" }, { status: 400 });
     }
 
-    // Проверяем, является ли пользователь владельцем проекта (или участником в будущем)
+    // Проверяем доступ: владелец или участник с правом EDITOR/ADMIN
     const project = await prisma.project.findFirst({
       where: {
         id: projectId,
-        ownerId: session.user.id,
+        OR: [
+          { ownerId: session.user.id },
+          { members: { some: { userId: session.user.id, role: { in: ["ADMIN", "EDITOR"] } } } },
+        ],
       },
     });
 
     if (!project) {
-      return NextResponse.json({ error: "Проект не найден или нет доступа" }, { status: 403 });
+      return NextResponse.json({ error: "Проект не найден или нет прав для создания задач" }, { status: 403 });
     }
 
     const lastTask = await prisma.task.findFirst({
@@ -41,8 +44,19 @@ export async function POST(req: Request) {
         title,
         description,
         status: status || "TODO",
+        priority: priority || "MEDIUM",
         order: newOrder,
         projectId,
+        assignees: assigneeIds
+          ? {
+              connect: assigneeIds.map((id: string) => ({ id })),
+            }
+          : undefined,
+      },
+      include: {
+        assignees: {
+          select: { id: true, name: true, email: true },
+        },
       },
     });
 

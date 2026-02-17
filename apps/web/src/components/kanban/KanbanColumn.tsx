@@ -1,7 +1,7 @@
 import React from "react";
 import { Droppable } from "@hello-pangea/dnd";
 import { Plus } from "lucide-react";
-import { ColumnContainer, ColumnHeader, TaskList, AddTaskButton } from "./BoardStyles";
+import { ColumnContainer, ColumnHeader, TaskList, AddTaskButton, StatusBadge } from "./BoardStyles";
 import { TaskCard } from "./TaskCard";
 
 interface Task {
@@ -9,7 +9,9 @@ interface Task {
   title: string;
   description: string | null;
   status: string;
+  priority: string;
   order: number;
+  assignees: { id: string; name: string | null; email: string }[];
 }
 
 interface KanbanColumnProps {
@@ -24,7 +26,10 @@ export const KanbanColumn = React.memo(({ id, title, tasks, onAddTask, onTaskCli
   return (
     <ColumnContainer>
       <ColumnHeader>
-        {title} <span>{tasks.length}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <StatusBadge $status={id}>{title}</StatusBadge>
+          <span style={{ color: "#5e6c84", fontSize: "0.85rem" }}>{tasks.length}</span>
+        </div>
       </ColumnHeader>
       <Droppable droppableId={id}>
         {(provided) => (

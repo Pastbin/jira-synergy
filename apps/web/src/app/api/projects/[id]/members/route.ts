@@ -56,3 +56,46 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Ошибка сервера" }, { status: 500 });
   }
 }
+
+// Получение списка всех участников проекта
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  const { id: projectId } = await params;
+
+  if (!session?.user) {
+    return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
+  }
+
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        owner: {
+          select: { id: true, name: true, email: true },
+        },
+        members: {
+          include: {
+            user: {
+              select: { id: true, name: true, email: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!project) {
+      return NextResponse.json({ error: "Проект не найден" }, { status: 404 });
+    }
+
+    // Собираем всех участников в плоский список
+    const allMembers = [
+      { ...project.owner, role: "ADMIN" },
+      ...project.members.map((m) => ({ ...m.user, role: m.role })),
+    ];
+
+    return NextResponse.json(allMembers);
+  } catch (error) {
+    console.error("Get Members Error:", error);
+    return NextResponse.json({ error: "Ошибка сервера" }, { status: 500 });
+  }
+}

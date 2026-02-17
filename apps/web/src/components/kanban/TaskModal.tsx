@@ -19,6 +19,10 @@ import {
   CommentTime,
   ActivityItem,
   ActivityText,
+  PriorityBadge,
+  AssigneeList,
+  AssigneeItem,
+  OnlineBadge,
 } from "./BoardStyles";
 
 // Вспомогательная функция для форматирования даты
@@ -48,12 +52,26 @@ interface Task {
   title: string;
   description: string | null;
   status: string;
+  priority: string;
   order: number;
+  assignees: { id: string; name: string | null; email: string }[];
 }
 
-interface Comment {
+interface TaskComment {
   id: string;
   text: string;
+  createdAt: string;
+  author: {
+    id: string;
+    name: string | null;
+    email: string;
+  };
+}
+
+interface TaskActivity {
+  id: string;
+  type: string;
+  content: string | null;
   createdAt: string;
   user: {
     id: string;
@@ -62,19 +80,8 @@ interface Comment {
   };
 }
 
-interface Activity {
-  id: string;
-  type: string;
-  content: string;
-  createdAt: string;
-  user: {
-    id: string;
-    name: string | null;
-  };
-}
-
 interface TaskModalProps {
-  projectId: string; // Добавлено
+  projectId: string;
   isOpen: boolean;
   onClose: () => void;
   selectedTask: Task | null;
@@ -84,6 +91,11 @@ interface TaskModalProps {
   setEditTitle: (val: string) => void;
   editDescription: string;
   setEditDescription: (val: string) => void;
+  editPriority: string;
+  setEditPriority: (val: string) => void;
+  editAssigneeIds: string[];
+  setEditAssigneeIds: (val: string[] | ((prev: string[]) => string[])) => void;
+  projectMembers: { id: string; name: string | null; email: string }[];
   isSubmitting: boolean;
   onCreate: (e: React.FormEvent) => void;
   onUpdate: (e: React.FormEvent) => void;
@@ -91,7 +103,7 @@ interface TaskModalProps {
 }
 
 export const TaskModal: React.FC<TaskModalProps> = ({
-  projectId, // Добавлено
+  projectId,
   isOpen,
   onClose,
   selectedTask,
@@ -101,6 +113,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   setEditTitle,
   editDescription,
   setEditDescription,
+  editPriority,
+  setEditPriority,
+  editAssigneeIds,
+  setEditAssigneeIds,
+  projectMembers,
   isSubmitting,
   onCreate,
   onUpdate,
@@ -108,8 +125,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 }) => {
   const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState<"comments" | "activity">("comments");
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
+  const [comments, setComments] = useState<TaskComment[]>([]);
+  const [activities, setActivities] = useState<TaskActivity[]>([]);
   const [newComment, setNewComment] = useState("");
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
@@ -120,7 +137,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
       // Слушаем новые комментарии через сокеты
       const socket = getSocket();
-      const handleNewComment = (data: { taskId: string; comment: Comment }) => {
+      const handleNewComment = (data: { taskId: string; comment: TaskComment }) => {
         if (data.taskId === selectedTask.id) {
           setComments((prev) => [data.comment, ...prev]);
         }
@@ -152,8 +169,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     }
   };
 
-  const handlePostComment = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handlePostComment = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!newComment.trim() || !selectedTask) return;
 
     setIsPostingComment(true);
@@ -238,6 +255,56 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               />
             </div>
 
+            <div style={{ marginBottom: "1.5rem" }}>
+              <label style={{ fontSize: "0.85rem", color: "#5e6c84", fontWeight: 700, textTransform: "uppercase" }}>
+                Приоритет
+              </label>
+              <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+                {["LOW", "MEDIUM", "HIGH", "URGENT"].map((p) => (
+                  <PriorityBadge
+                    key={p}
+                    $priority={p}
+                    style={{
+                      cursor: "pointer",
+                      opacity: editPriority === p ? 1 : 0.4,
+                      border: editPriority === p ? "2px solid #0052cc" : "2px solid transparent",
+                      padding: "4px 8px",
+                    }}
+                    onClick={() => setEditPriority(p)}
+                  >
+                    {p === "LOW" ? "Низкий" : p === "MEDIUM" ? "Средний" : p === "HIGH" ? "Высокий" : "Критический"}
+                  </PriorityBadge>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: "1.5rem" }}>
+              <label style={{ fontSize: "0.85rem", color: "#5e6c84", fontWeight: 700, textTransform: "uppercase" }}>
+                Исполнители
+              </label>
+              <AssigneeList>
+                {projectMembers.map((member) => {
+                  const isSelected = editAssigneeIds.includes(member.id);
+                  return (
+                    <AssigneeItem
+                      key={member.id}
+                      $selected={isSelected}
+                      onClick={() => {
+                        setEditAssigneeIds((prev) =>
+                          isSelected ? prev.filter((id) => id !== member.id) : [...prev, member.id],
+                        );
+                      }}
+                    >
+                      <AvatarCircle style={{ width: 24, height: 24, fontSize: 10 }}>
+                        {getInitials(member.name)}
+                      </AvatarCircle>
+                      {member.name || member.email}
+                    </AssigneeItem>
+                  );
+                })}
+              </AssigneeList>
+            </div>
+
             <TabContainer>
               <Tab type="button" $active={activeTab === "comments"} onClick={() => setActiveTab("comments")}>
                 <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -255,7 +322,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
             {activeTab === "comments" ? (
               <div>
-                <form onSubmit={handlePostComment} style={{ marginBottom: "20px", display: "flex", gap: "10px" }}>
+                <div style={{ marginBottom: "20px", display: "flex", gap: "10px" }}>
                   <AvatarCircle $color="#4c9aff">{getInitials(session?.user?.name)}</AvatarCircle>
                   <div style={{ flex: 1, position: "relative" }}>
                     <Input
@@ -264,9 +331,16 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                       onChange={(e) => setNewComment(e.target.value)}
                       disabled={isPostingComment}
                       style={{ paddingRight: "40px", marginBottom: 0 }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handlePostComment();
+                        }
+                      }}
                     />
                     <button
-                      type="submit"
+                      type="button"
+                      onClick={handlePostComment}
                       disabled={isPostingComment || !newComment.trim()}
                       style={{
                         position: "absolute",
@@ -284,7 +358,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                       <Send size={18} />
                     </button>
                   </div>
-                </form>
+                </div>
 
                 <CommentContainer>
                   {isLoadingDetails ? (
@@ -296,10 +370,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                   ) : (
                     comments.map((comment) => (
                       <CommentItem key={comment.id}>
-                        <AvatarCircle>{getInitials(comment.user.name)}</AvatarCircle>
+                        <AvatarCircle>{getInitials(comment.author.name)}</AvatarCircle>
                         <CommentContent>
                           <CommentHeader>
-                            {comment.user.name || "Пользователь"}
+                            {comment.author.name || "Пользователь"}
                             <CommentTime>{formatDate(comment.createdAt)}</CommentTime>
                           </CommentHeader>
                           {comment.text}
@@ -318,16 +392,26 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 ) : (
                   activities.map((activity) => (
                     <ActivityItem key={activity.id}>
-                      {activity.type === "STATUS_CHANGE" ? <ArrowRightCircle size={16} /> : <Edit3 size={16} />}
+                      {activity.type === "STATUS_CHANGE" ? (
+                        <ArrowRightCircle size={16} style={{ color: "#0052cc" }} />
+                      ) : activity.type === "PRIORITY_CHANGE" ? (
+                        <ArrowRightCircle size={16} style={{ color: "#ff8b00", transform: "rotate(-90deg)" }} />
+                      ) : (
+                        <Edit3 size={16} style={{ color: "#4c9aff" }} />
+                      )}
                       <ActivityText>
-                        <span>{activity.user.name || "Система"}</span>{" "}
+                        <span>{activity.user?.name || activity.user?.email || "Система"}</span>{" "}
                         {activity.type === "STATUS_CHANGE" ? (
                           <>
-                            переместил задачу в <strong>{activity.content}</strong>
+                            изменил статус на <strong>{activity.content}</strong>
                           </>
                         ) : activity.type === "TITLE_CHANGE" ? (
                           <>
-                            изменил название на <strong>{activity.content}</strong>
+                            обновил название: <strong>{activity.content}</strong>
+                          </>
+                        ) : activity.type === "PRIORITY_CHANGE" ? (
+                          <>
+                            изменил приоритет: <strong>{activity.content}</strong>
                           </>
                         ) : (
                           activity.content
@@ -391,6 +475,69 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 disabled={isSubmitting}
               />
             </div>
+
+            <div style={{ marginBottom: "1.5rem" }}>
+              <label style={{ fontSize: "0.85rem", color: "#5e6c84", fontWeight: 700, textTransform: "uppercase" }}>
+                Описание
+              </label>
+              <TextArea
+                placeholder="Добавьте подробности..."
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div style={{ marginBottom: "1.5rem" }}>
+              <label style={{ fontSize: "0.85rem", color: "#5e6c84", fontWeight: 700, textTransform: "uppercase" }}>
+                Приоритет
+              </label>
+              <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+                {["LOW", "MEDIUM", "HIGH", "URGENT"].map((p) => (
+                  <PriorityBadge
+                    key={p}
+                    $priority={p}
+                    style={{
+                      cursor: "pointer",
+                      opacity: editPriority === p ? 1 : 0.4,
+                      border: editPriority === p ? "2px solid #0052cc" : "2px solid transparent",
+                      padding: "4px 8px",
+                    }}
+                    onClick={() => setEditPriority(p)}
+                  >
+                    {p === "LOW" ? "Низкий" : p === "MEDIUM" ? "Средний" : p === "HIGH" ? "Высокий" : "Критический"}
+                  </PriorityBadge>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: "1.5rem" }}>
+              <label style={{ fontSize: "0.85rem", color: "#5e6c84", fontWeight: 700, textTransform: "uppercase" }}>
+                Исполнители
+              </label>
+              <AssigneeList>
+                {projectMembers.map((member) => {
+                  const isSelected = editAssigneeIds.includes(member.id);
+                  return (
+                    <AssigneeItem
+                      key={member.id}
+                      $selected={isSelected}
+                      onClick={() => {
+                        setEditAssigneeIds((prev) =>
+                          isSelected ? prev.filter((id) => id !== member.id) : [...prev, member.id],
+                        );
+                      }}
+                    >
+                      <AvatarCircle style={{ width: 24, height: 24, fontSize: 10 }}>
+                        {getInitials(member.name)}
+                      </AvatarCircle>
+                      {member.name || member.email}
+                    </AssigneeItem>
+                  );
+                })}
+              </AssigneeList>
+            </div>
+
             <div
               style={{
                 display: "flex",

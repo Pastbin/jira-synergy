@@ -17,7 +17,7 @@ model User {
   password      String    // Хешированный пароль
   ownedProjects Project[] @relation("ProjectOwner") // Проекты, где я создатель
   memberProjects ProjectMember[] // Связь через промежуточную таблицу ролей
-  assignedTasks Task[]    @relation("AssignedTasks") // Связь с назначенными задачами
+  assignedTasks Task[]    @relation("TaskAssignees") // Связь с назначенными задачами
   comments      Comment[] // Мои комментарии
   activities    Activity[] // Мои действия в системе
   createdAt     DateTime  @default(now()) // Дата создания
@@ -61,16 +61,23 @@ model Task {
   title       String   // Заголовок
   description String?  // Описание
   status      Status   @default(TODO) // Текущий статус
+  priority    Priority @default(MEDIUM) // ПРИОРИТЕТ
   order       Float    @default(0)    // Порядок отображения (для сортировки)
   deadline    DateTime? // Крайний срок
   projectId   String   // ID проекта
   project     Project  @relation(fields: [projectId], references: [id]) // Связь с проектом
-  assigneeId  String?  // ID ответственного
-  assignee    User?    @relation("AssignedTasks", fields: [assigneeId], references: [id]) // Связь с ответственным
+  assignees   User[]   @relation("TaskAssignees") // МНОЖЕСТВЕННЫЕ ИСПОЛНИТЕЛИ
   comments    Comment[] // Комментарии к задаче
   activities  Activity[] // История изменений задачи
   createdAt   DateTime @default(now()) // Дата создания
   updatedAt   DateTime @updatedAt // Дата обновления
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
 }
 
 // Модель для комментариев к задаче

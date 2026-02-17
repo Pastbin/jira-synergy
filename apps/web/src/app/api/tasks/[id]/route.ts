@@ -15,7 +15,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   try {
     const body = await req.json();
-    const { status, title, description, order } = body;
+    const { status, title, description, order, priority, assigneeIds } = body;
 
     // Проверка прав доступа: редактировать задачу может владелец или участник с доступом
     const task = await prisma.task.findUnique({
@@ -61,6 +61,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         userId: currentUserId,
       });
     }
+    if (priority && priority !== task.priority) {
+      activities.push({
+        type: "PRIORITY_CHANGE",
+        content: `${task.priority} -> ${priority}`,
+        taskId: id,
+        userId: currentUserId,
+      });
+    }
 
     const [updatedTask] = await prisma.$transaction([
       prisma.task.update({
@@ -70,6 +78,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           order: typeof order === "number" ? order : undefined,
           title: title || undefined,
           description: typeof description !== "undefined" ? description : undefined,
+          priority: priority || undefined,
+          assignees: assigneeIds
+            ? {
+                set: assigneeIds.map((id: string) => ({ id })),
+              }
+            : undefined,
+        },
+        include: {
+          assignees: {
+            select: { id: true, name: true, email: true },
+          },
         },
       }),
       // Если есть изменения, создаем лог активности

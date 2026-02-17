@@ -19,6 +19,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       },
       include: {
         tasks: {
+          include: {
+            assignees: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
           orderBy: { order: "asc" },
         },
         members: {
