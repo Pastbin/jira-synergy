@@ -57,6 +57,12 @@ io.on("connection", (socket) => {
     socket.to(data.projectId).emit("task_updated", data);
   });
 
+  // Обработка новых комментариев
+  socket.on("new_comment", (data) => {
+    // Рассылаем всем в комнате проекта, кроме отправителя
+    socket.to(data.projectId).emit("comment_received", data);
+  });
+
   // Уведомление пользователя о том, что его добавили в проект
   socket.on("notify_invite", ({ email, project }) => {
     console.log(`Отправка уведомления для ${email} о проекте ${project.name}`);

@@ -1,6 +1,47 @@
-import React from "react";
-import { X, Trash2, Save } from "lucide-react";
-import { ModalOverlay, Modal, Input, TextArea, DeleteButton, SubmitButton } from "./BoardStyles";
+import React, { useState, useEffect } from "react";
+import { X, Trash2, Save, MessageSquare, History, Send, Edit3, ArrowRightCircle } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { getSocket } from "@/lib/socket";
+import {
+  ModalOverlay,
+  Modal,
+  Input,
+  TextArea,
+  DeleteButton,
+  SubmitButton,
+  TabContainer,
+  Tab,
+  CommentContainer,
+  CommentItem,
+  AvatarCircle,
+  CommentContent,
+  CommentHeader,
+  CommentTime,
+  ActivityItem,
+  ActivityText,
+} from "./BoardStyles";
+
+// Вспомогательная функция для форматирования даты
+const formatDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  return date.toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+// Вспомогательная функция для получения инициалов
+const getInitials = (name?: string | null) => {
+  if (!name) return "?";
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+};
 
 interface Task {
   id: string;
@@ -10,7 +51,30 @@ interface Task {
   order: number;
 }
 
+interface Comment {
+  id: string;
+  text: string;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+  };
+}
+
+interface Activity {
+  id: string;
+  type: string;
+  content: string;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string | null;
+  };
+}
+
 interface TaskModalProps {
+  projectId: string; // Добавлено
   isOpen: boolean;
   onClose: () => void;
   selectedTask: Task | null;
@@ -27,6 +91,7 @@ interface TaskModalProps {
 }
 
 export const TaskModal: React.FC<TaskModalProps> = ({
+  projectId, // Добавлено
   isOpen,
   onClose,
   selectedTask,
@@ -41,6 +106,84 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   onUpdate,
   onDelete,
 }) => {
+  const { data: session } = useSession();
+  const [activeTab, setActiveTab] = useState<"comments" | "activity">("comments");
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [isPostingComment, setIsPostingComment] = useState(false);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && selectedTask) {
+      fetchDetails();
+
+      // Слушаем новые комментарии через сокеты
+      const socket = getSocket();
+      const handleNewComment = (data: { taskId: string; comment: Comment }) => {
+        if (data.taskId === selectedTask.id) {
+          setComments((prev) => [data.comment, ...prev]);
+        }
+      };
+
+      socket.on("comment_received", handleNewComment);
+
+      return () => {
+        socket.off("comment_received", handleNewComment);
+      };
+    }
+  }, [isOpen, selectedTask]);
+
+  const fetchDetails = async () => {
+    if (!selectedTask) return;
+    setIsLoadingDetails(true);
+    try {
+      const [comRes, actRes] = await Promise.all([
+        fetch(`/api/tasks/${selectedTask.id}/comments`),
+        fetch(`/api/tasks/${selectedTask.id}/activities`),
+      ]);
+
+      if (comRes.ok) setComments(await comRes.json());
+      if (actRes.ok) setActivities(await actRes.json());
+    } catch (err) {
+      console.error("Ошибка при загрузке деталей задачи:", err);
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
+
+  const handlePostComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim() || !selectedTask) return;
+
+    setIsPostingComment(true);
+    try {
+      const res = await fetch(`/api/tasks/${selectedTask.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: newComment }),
+      });
+
+      if (res.ok) {
+        const addedComment = await res.json();
+        setComments((prev) => [addedComment, ...prev]);
+        setNewComment("");
+
+        // Уведомляем других через сокет
+        const socket = getSocket();
+        socket.emit("new_comment", {
+          projectId,
+          taskId: selectedTask.id,
+          comment: addedComment,
+        });
+      }
+    } catch (err) {
+      console.error("Ошибка при добавлении комментария:", err);
+    } finally {
+      setIsPostingComment(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -94,6 +237,108 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 disabled={isSubmitting}
               />
             </div>
+
+            <TabContainer>
+              <Tab type="button" $active={activeTab === "comments"} onClick={() => setActiveTab("comments")}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <MessageSquare size={16} />
+                  Комментарии ({comments.length})
+                </div>
+              </Tab>
+              <Tab type="button" $active={activeTab === "activity"} onClick={() => setActiveTab("activity")}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <History size={16} />
+                  История
+                </div>
+              </Tab>
+            </TabContainer>
+
+            {activeTab === "comments" ? (
+              <div>
+                <form onSubmit={handlePostComment} style={{ marginBottom: "20px", display: "flex", gap: "10px" }}>
+                  <AvatarCircle $color="#4c9aff">{getInitials(session?.user?.name)}</AvatarCircle>
+                  <div style={{ flex: 1, position: "relative" }}>
+                    <Input
+                      placeholder="Напишите комментарий..."
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      disabled={isPostingComment}
+                      style={{ paddingRight: "40px", marginBottom: 0 }}
+                    />
+                    <button
+                      type="submit"
+                      disabled={isPostingComment || !newComment.trim()}
+                      style={{
+                        position: "absolute",
+                        right: "10px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        background: "none",
+                        border: "none",
+                        color: newComment.trim() ? "#0052cc" : "#dfe1e6",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Send size={18} />
+                    </button>
+                  </div>
+                </form>
+
+                <CommentContainer>
+                  {isLoadingDetails ? (
+                    <p style={{ textAlign: "center", color: "#6b778c" }}>Загрузка...</p>
+                  ) : comments.length === 0 ? (
+                    <p style={{ textAlign: "center", color: "#6b778c", padding: "10px 0" }}>
+                      Комментариев пока нет. Будьте первым!
+                    </p>
+                  ) : (
+                    comments.map((comment) => (
+                      <CommentItem key={comment.id}>
+                        <AvatarCircle>{getInitials(comment.user.name)}</AvatarCircle>
+                        <CommentContent>
+                          <CommentHeader>
+                            {comment.user.name || "Пользователь"}
+                            <CommentTime>{formatDate(comment.createdAt)}</CommentTime>
+                          </CommentHeader>
+                          {comment.text}
+                        </CommentContent>
+                      </CommentItem>
+                    ))
+                  )}
+                </CommentContainer>
+              </div>
+            ) : (
+              <CommentContainer>
+                {isLoadingDetails ? (
+                  <p style={{ textAlign: "center", color: "#6b778c" }}>Загрузка...</p>
+                ) : activities.length === 0 ? (
+                  <p style={{ textAlign: "center", color: "#6b778c" }}>История пуста</p>
+                ) : (
+                  activities.map((activity) => (
+                    <ActivityItem key={activity.id}>
+                      {activity.type === "STATUS_CHANGE" ? <ArrowRightCircle size={16} /> : <Edit3 size={16} />}
+                      <ActivityText>
+                        <span>{activity.user.name || "Система"}</span>{" "}
+                        {activity.type === "STATUS_CHANGE" ? (
+                          <>
+                            переместил задачу в <strong>{activity.content}</strong>
+                          </>
+                        ) : activity.type === "TITLE_CHANGE" ? (
+                          <>
+                            изменил название на <strong>{activity.content}</strong>
+                          </>
+                        ) : (
+                          activity.content
+                        )}
+                        <em>{formatDate(activity.createdAt)}</em>
+                      </ActivityText>
+                    </ActivityItem>
+                  ))
+                )}
+              </CommentContainer>
+            )}
 
             <div
               style={{

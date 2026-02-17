@@ -7,37 +7,74 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const session = await auth();
   const { id } = await params;
 
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
   }
+
+  const currentUserId = session.user.id;
 
   try {
     const body = await req.json();
     const { status, title, description, order } = body;
 
-    // Проверка прав доступа: редактировать задачу может только владелец проекта
+    // Проверка прав доступа: редактировать задачу может владелец или участник с доступом
     const task = await prisma.task.findUnique({
       where: { id },
-      include: { project: true },
+      include: {
+        project: {
+          include: {
+            members: {
+              where: { userId: currentUserId },
+            },
+          },
+        },
+      },
     });
 
     if (!task) {
       return NextResponse.json({ error: "Задача не найдена" }, { status: 404 });
     }
 
-    if (task.project.ownerId !== session.user.id) {
-      return NextResponse.json({ error: "Доступ запрещен" }, { status: 403 });
+    const isOwner = task.project.ownerId === currentUserId;
+    const member = task.project.members[0];
+    const isEditor = member && member.role !== "VIEWER";
+
+    if (!isOwner && !isEditor) {
+      return NextResponse.json({ error: "У вас нет прав для изменения этой задачи" }, { status: 403 });
     }
 
-    const updatedTask = await prisma.task.update({
-      where: { id },
-      data: {
-        status: status || undefined,
-        order: typeof order === "number" ? order : undefined,
-        title: title || undefined,
-        description: description || undefined,
-      },
-    });
+    // Собираем лог изменений
+    const activities = [];
+    if (status && status !== task.status) {
+      activities.push({
+        type: "STATUS_CHANGE",
+        content: `${task.status} -> ${status}`,
+        taskId: id,
+        userId: currentUserId,
+      });
+    }
+    if (title && title !== task.title) {
+      activities.push({
+        type: "TITLE_CHANGE",
+        content: title,
+        taskId: id,
+        userId: currentUserId,
+      });
+    }
+
+    const [updatedTask] = await prisma.$transaction([
+      prisma.task.update({
+        where: { id },
+        data: {
+          status: status || undefined,
+          order: typeof order === "number" ? order : undefined,
+          title: title || undefined,
+          description: typeof description !== "undefined" ? description : undefined,
+        },
+      }),
+      // Если есть изменения, создаем лог активности
+      ...(activities.length > 0 ? activities.map((a) => prisma.activity.create({ data: a })) : []),
+    ]);
 
     return NextResponse.json(updatedTask);
   } catch (error) {
@@ -51,23 +88,40 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const session = await auth();
   const { id } = await params;
 
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
   }
+
+  const currentUserId = session.user.id;
 
   try {
     // Проверка прав доступа перед удалением
     const task = await prisma.task.findUnique({
       where: { id },
-      include: { project: true },
+      include: {
+        project: {
+          include: {
+            members: {
+              where: { userId: currentUserId },
+            },
+          },
+        },
+      },
     });
 
     if (!task) {
       return NextResponse.json({ error: "Задача не найдена" }, { status: 404 });
     }
 
-    if (task.project.ownerId !== session.user.id) {
-      return NextResponse.json({ error: "Доступ запрещен" }, { status: 403 });
+    const isOwner = task.project.ownerId === currentUserId;
+    const member = task.project.members[0];
+    const isAdmin = member && member.role === "ADMIN";
+
+    if (!isOwner && !isAdmin) {
+      return NextResponse.json(
+        { error: "Удалять задачи может только владелец или администратор проекта" },
+        { status: 403 },
+      );
     }
 
     await prisma.task.delete({

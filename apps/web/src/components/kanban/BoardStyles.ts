@@ -278,3 +278,117 @@ export const Toast = styled.div<{ $type?: "success" | "error" | "warning" }>`
     }
   }
 `;
+
+export const TabContainer = styled.div`
+  display: flex;
+  gap: 16px;
+  border-bottom: 2px solid #ebecf0;
+  margin-bottom: 16px;
+  margin-top: 16px;
+`;
+
+export const Tab = styled.button<{ $active?: boolean }>`
+  background: none;
+  border: none;
+  padding: 8px 4px;
+  cursor: pointer;
+  font-weight: 600;
+  color: ${(props) => (props.$active ? "#0052cc" : "#5e6c84")};
+  border-bottom: 2px solid ${(props) => (props.$active ? "#0052cc" : "transparent")};
+  margin-bottom: -2px;
+  transition: all 0.2s;
+
+  &:hover {
+    color: #0052cc;
+  }
+`;
+
+export const CommentContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 8px;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #dfe1e6;
+    border-radius: 3px;
+  }
+`;
+
+export const CommentItem = styled.div`
+  display: flex;
+  gap: 12px;
+  padding: 8px 0;
+`;
+
+export const AvatarCircle = styled.div<{ $color?: string }>`
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: ${(props) => props.$color || "#0052cc"};
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  flex-shrink: 0;
+`;
+
+export const CommentContent = styled.div`
+  flex: 1;
+  background: #f4f5f7;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 14px;
+`;
+
+export const CommentHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-weight: 600;
+  color: #172b4d;
+`;
+
+export const CommentTime = styled.span`
+  font-weight: 400;
+  font-size: 12px;
+  color: #6b778c;
+`;
+
+export const ActivityItem = styled.div`
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #ebecf0;
+  font-size: 14px;
+  align-items: flex-start;
+
+  svg {
+    color: #5e6c84;
+    margin-top: 2px;
+  }
+`;
+
+export const ActivityText = styled.div`
+  color: #172b4d;
+  line-height: 1.4;
+
+  span {
+    font-weight: 600;
+  }
+
+  em {
+    font-style: normal;
+    color: #6b778c;
+    font-size: 12px;
+    display: block;
+    margin-top: 2px;
+  }
+`;

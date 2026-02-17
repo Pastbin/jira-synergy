@@ -317,6 +317,7 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
       </DragDropContext>
 
       <TaskModal
+        projectId={projectId}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         selectedTask={selectedTask}

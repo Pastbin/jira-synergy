@@ -18,6 +18,8 @@ model User {
   ownedProjects Project[] @relation("ProjectOwner") // Проекты, где я создатель
   memberProjects ProjectMember[] // Связь через промежуточную таблицу ролей
   assignedTasks Task[]    @relation("AssignedTasks") // Связь с назначенными задачами
+  comments      Comment[] // Мои комментарии
+  activities    Activity[] // Мои действия в системе
   createdAt     DateTime  @default(now()) // Дата создания
   updatedAt     DateTime  @updatedAt // Дата обновления
 }
@@ -65,8 +67,34 @@ model Task {
   project     Project  @relation(fields: [projectId], references: [id]) // Связь с проектом
   assigneeId  String?  // ID ответственного
   assignee    User?    @relation("AssignedTasks", fields: [assigneeId], references: [id]) // Связь с ответственным
+  comments    Comment[] // Комментарии к задаче
+  activities  Activity[] // История изменений задачи
   createdAt   DateTime @default(now()) // Дата создания
   updatedAt   DateTime @updatedAt // Дата обновления
+}
+
+// Модель для комментариев к задаче
+model Comment {
+  id        String   @id @default(cuid())
+  text      String   // Текст комментария
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Модель для истории изменений (лог активностей)
+model Activity {
+  id        String   @id @default(cuid())
+  type      String   // Тип события (e.g., "STATUS_CHANGE", "ASSIGNED", "CREATED")
+  content   String?  // Дополнительная информация (напр. старое/новое значение)
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
 }
 
 // Перечисление возможных статусов задачи по Kanban
