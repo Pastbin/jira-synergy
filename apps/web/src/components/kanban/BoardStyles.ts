@@ -392,3 +392,26 @@ export const ActivityText = styled.div`
     margin-top: 2px;
   }
 `;
+
+export const ConfirmOverlay = styled(ModalOverlay)`
+  z-index: 3000;
+  background: rgba(9, 30, 66, 0.7);
+  backdrop-filter: blur(2px);
+`;
+
+export const ConfirmBox = styled.div`
+  background: white;
+  padding: 32px;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 20px 66px -20px rgba(9, 30, 66, 0.5);
+  text-align: center;
+`;
+
+export const DangerIcon = styled.div`
+  color: #de350b;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: center;
+`;

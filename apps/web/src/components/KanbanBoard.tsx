@@ -7,6 +7,7 @@ import { getSocket } from "@/lib/socket";
 import { BoardContainer, PresenceBar, UserAvatar, Toast } from "./kanban/BoardStyles";
 import { KanbanColumn } from "./kanban/KanbanColumn";
 import { TaskModal } from "./kanban/TaskModal";
+import { ConfirmModal } from "./ui/ConfirmModal";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 
 interface Task {
@@ -40,6 +41,7 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
   const [editDescription, setEditDescription] = useState("");
   const [activeStatus, setActiveStatus] = useState("TODO");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" | "warning" } | null>(
     null,
@@ -258,7 +260,11 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
       showToast("У вас нет прав для удаления задач", "warning");
       return;
     }
-    if (!confirm("Вы уверены, что хотите удалить эту задачу?")) return;
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!selectedTask) return;
 
     setIsSubmitting(true);
     try {
@@ -268,6 +274,7 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
 
       if (res.ok) {
         socket?.emit("task_moved", { projectId });
+        setIsDeleteConfirmOpen(false);
         setIsModalOpen(false);
         onTaskAdded();
         showToast("Задача удалена");
@@ -331,6 +338,15 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
         onCreate={handleCreateTask}
         onUpdate={handleUpdateTask}
         onDelete={handleDeleteTask}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteConfirmOpen}
+        onClose={() => setIsDeleteConfirmOpen(false)}
+        onConfirm={confirmDelete}
+        title="Удалить задачу?"
+        message={`Вы уверены, что хотите безвозвратно удалить задачу "${selectedTask?.title}"? Это действие нельзя будет отменить.`}
+        isSubmitting={isSubmitting}
       />
 
       {notification && (
