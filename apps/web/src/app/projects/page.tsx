@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react";
 import styled from "styled-components";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { getSocket } from "@/lib/socket";
 
 const MainContent = styled.div`
@@ -31,10 +32,38 @@ const ProjectCard = styled.div`
     transform 0.2s,
     box-shadow 0.2s;
   border-left: 5px solid #0052cc;
+  position: relative;
 
   &:hover {
     transform: translateY(-4px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  &:hover .delete-btn {
+    opacity: 1;
+  }
+`;
+
+const DeleteButton = styled.button`
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid #ebecf0;
+  border-radius: 4px;
+  padding: 6px;
+  color: #de350b;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    background: #ffebe6;
+    border-color: #ff5230;
+    transform: scale(1.1);
   }
 `;
 
@@ -185,7 +214,12 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState<string | null>(null);
 
-  // Загрузка списка проектов при инициализации
+  // Состояние для подтверждения удаления
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ isOpen: boolean; projectId: string | null }>({
+    isOpen: false,
+    projectId: null,
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
   useEffect(() => {
     fetchProjects();
 
@@ -236,6 +270,41 @@ export default function ProjectsPage() {
     }
   };
 
+  const openDeleteModal = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDeleteConfirmation({ isOpen: true, projectId: id });
+  };
+
+  const handleConfirmDelete = async () => {
+    const id = deleteConfirmation.projectId;
+    if (!id) return;
+
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/projects/${id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        setProjects(projects.filter((p) => p.id !== id));
+        setNotification("Проект успешно удален");
+        setTimeout(() => setNotification(null), 3000);
+      } else {
+        const data = await res.json();
+        setNotification(data.error || "Ошибка при удалении");
+        setTimeout(() => setNotification(null), 5000);
+      }
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      setNotification("Не удалось удалить проект");
+      setTimeout(() => setNotification(null), 5000);
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirmation({ isOpen: false, projectId: null });
+    }
+  };
+
   return (
     <MainContent>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -258,6 +327,9 @@ export default function ProjectsPage() {
               style={{ textDecoration: "none", color: "inherit" }}
             >
               <ProjectCard>
+                <DeleteButton className="delete-btn" onClick={(e) => openDeleteModal(e, project.id)}>
+                  <Trash2 size={16} />
+                </DeleteButton>
                 <h3>{project.name}</h3>
                 <p style={{ color: "#5e6c84", fontSize: "0.9rem", marginTop: "0.5rem" }}>
                   {project.description || "Нет описания"}
@@ -327,6 +399,16 @@ export default function ProjectsPage() {
       )}
 
       {notification && <Notification>{notification}</Notification>}
+
+      <ConfirmModal
+        isOpen={deleteConfirmation.isOpen}
+        onClose={() => setDeleteConfirmation({ isOpen: false, projectId: null })}
+        onConfirm={handleConfirmDelete}
+        title="Удалить проект?"
+        message="Это действие нельзя отменить. Все задачи, комментарии и история активностей этого проекта будут удалены навсегда."
+        confirmText="Удалить проект"
+        isSubmitting={isDeleting}
+      />
     </MainContent>
   );
 }

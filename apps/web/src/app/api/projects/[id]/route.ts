@@ -61,3 +61,36 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: "Ошибка сервера" }, { status: 500 });
   }
 }
+
+// Удаление проекта
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  const { id } = await params;
+
+  if (!session?.user) {
+    return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
+  }
+
+  try {
+    // Только владелец может удалить проект
+    const project = await prisma.project.findFirst({
+      where: {
+        id: id,
+        ownerId: session.user.id,
+      },
+    });
+
+    if (!project) {
+      return NextResponse.json({ error: "Проект не найден или у вас недостаточно прав" }, { status: 403 });
+    }
+
+    await prisma.project.delete({
+      where: { id: id },
+    });
+
+    return NextResponse.json({ message: "Проект успешно удален" });
+  } catch (error) {
+    console.error("DELETE Project Error:", error);
+    return NextResponse.json({ error: "Ошибка сервера при удалении" }, { status: 500 });
+  }
+}
