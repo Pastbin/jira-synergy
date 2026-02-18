@@ -58,6 +58,7 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
   const [activeStatus, setActiveStatus] = useState("TODO");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
   const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
   const [projectMembers, setProjectMembers] = useState<any[]>([]);
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" | "warning" } | null>(
@@ -190,12 +191,16 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
   };
 
   const handleRemoveMember = async (userId: string) => {
-    if (!confirm("Вы уверены, что хотите удалить участника из проекта?")) return;
+    setMemberToDelete(userId);
+  };
+
+  const executeRemoveMember = async () => {
+    if (!memberToDelete) return;
     try {
       const res = await fetch(`/api/projects/${projectId}/members`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, action: "REMOVE" }),
+        body: JSON.stringify({ userId: memberToDelete, action: "REMOVE" }),
       });
       if (res.ok) {
         showToast("Участник удален");
@@ -206,6 +211,8 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
       }
     } catch (err) {
       showToast("Ошибка сети", "error");
+    } finally {
+      setMemberToDelete(null);
     }
   };
 
@@ -474,6 +481,16 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
         onConfirm={confirmDelete}
         title="Удалить задачу?"
         message={`Вы уверены, что хотите безвозвратно удалить задачу "${selectedTask?.title}"? Это действие нельзя будет отменить.`}
+        isSubmitting={isSubmitting}
+      />
+
+      <ConfirmModal
+        isOpen={!!memberToDelete}
+        onClose={() => setMemberToDelete(null)}
+        onConfirm={executeRemoveMember}
+        title="Удалить участника?"
+        message="Вы уверены, что хотите исключить этого пользователя из проекта? Он потеряет доступ ко всем задачам и доскам."
+        confirmText="Исключить"
         isSubmitting={isSubmitting}
       />
 
