@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import styled from "styled-components";
-import { ChevronLeft, UserPlus } from "lucide-react";
+import { ChevronLeft, UserPlus, CheckCircle2, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
@@ -61,11 +61,11 @@ const InviteButton = styled.button`
   }
 `;
 
-const SuccessToast = styled.div`
+const Toast = styled.div<{ $type?: "success" | "error" }>`
   position: fixed;
   bottom: 24px;
   right: 24px;
-  background: #36b37e;
+  background: ${(props) => (props.$type === "error" ? "#DE350B" : "#36B37E")};
   color: white;
   padding: 12px 20px;
   border-radius: 8px;
@@ -75,6 +75,7 @@ const SuccessToast = styled.div`
   gap: 10px;
   animation: slideIn 0.3s ease-out;
   z-index: 2000;
+  font-weight: 500;
 
   @keyframes slideIn {
     from {
@@ -135,7 +136,12 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
-  const [showToast, setShowToast] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  const showToastMsg = (message: string, type: "success" | "error" = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   const fetchProject = async () => {
     const res = await fetch(`/api/projects/${id}`);
@@ -157,8 +163,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
         body: JSON.stringify({ email: inviteEmail }),
       });
       if (res.ok) {
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 3000);
+        showToastMsg("Пользователь приглашен в проект");
 
         // Отправляем уведомление через сокеты
         if (project) {
@@ -177,10 +182,10 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
         fetchProject();
       } else {
         const data = await res.json();
-        alert(data.error || "Ошибка");
+        showToastMsg(data.error || "Ошибка", "error");
       }
     } catch (err) {
-      alert("Ошибка сети");
+      showToastMsg("Ошибка сети", "error");
     } finally {
       setInviting(false);
     }
@@ -242,7 +247,12 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
         }
       />
 
-      {showToast && <SuccessToast>Участник успешно приглашен в проект!</SuccessToast>}
+      {toast && (
+        <Toast $type={toast.type}>
+          {toast.type === "success" ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+          {toast.message}
+        </Toast>
+      )}
     </ProjectContainer>
   );
 }
