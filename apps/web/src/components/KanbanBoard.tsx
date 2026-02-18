@@ -4,11 +4,23 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { DragDropContext, DropResult } from "@hello-pangea/dnd";
 import { useSession } from "next-auth/react";
 import { getSocket } from "@/lib/socket";
-import { BoardContainer, PresenceBar, UserAvatar, Toast, OnlineBadge } from "./kanban/BoardStyles";
+import {
+  BoardContainer,
+  PresenceBar,
+  UserAvatar,
+  Toast,
+  OnlineBadge,
+  SearchInputWrapper,
+  SearchInput,
+  SearchIconWrapper,
+  SettingsButton,
+  ModalOverlay,
+  Modal,
+} from "./kanban/BoardStyles";
 import { KanbanColumn } from "./kanban/KanbanColumn";
 import { TaskModal } from "./kanban/TaskModal";
 import { ConfirmModal } from "./ui/ConfirmModal";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Search, Settings, Shield, UserX, X } from "lucide-react";
 
 interface Task {
   id: string;
@@ -51,11 +63,22 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" | "warning" } | null>(
     null,
   );
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { data: session } = useSession();
   const socket = getSocket();
 
   // Локальное состояние задач для оптимистичного обновления
   const [localTasks, setLocalTasks] = useState<Task[]>(tasks);
+
+  // Фильтрация задач по поиску
+  const filteredTasks = useMemo(() => {
+    if (!searchQuery.trim()) return localTasks;
+    const query = searchQuery.toLowerCase();
+    return localTasks.filter(
+      (t) => t.title.toLowerCase().includes(query) || (t.description?.toLowerCase() || "").includes(query),
+    );
+  }, [localTasks, searchQuery]);
 
   // Загрузка участников проекта
   const fetchMembers = useCallback(async () => {
@@ -111,10 +134,10 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
   const tasksByStatusMap = useMemo(() => {
     const map: Record<string, Task[]> = {};
     COLUMNS.forEach((col) => {
-      map[col.id] = localTasks.filter((t) => t.status === col.id).sort((a, b) => a.order - b.order);
+      map[col.id] = filteredTasks.filter((t) => t.status === col.id).sort((a, b) => a.order - b.order);
     });
     return map;
-  }, [localTasks]);
+  }, [filteredTasks]);
 
   const showToast = (message: string, type: "success" | "error" | "warning" = "success") => {
     setNotification({ message, type });
@@ -146,6 +169,45 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
     setEditAssigneeIds(task.assignees?.map((a) => a.id) || []);
     setIsModalOpen(true);
   }, []);
+
+  const handleUpdateMemberRole = async (userId: string, role: string) => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/members`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, role }),
+      });
+      if (res.ok) {
+        showToast("Роль участника обновлена");
+        fetchMembers();
+      } else {
+        const data = await res.json();
+        showToast(data.error || "Ошибка", "error");
+      }
+    } catch (err) {
+      showToast("Ошибка сети", "error");
+    }
+  };
+
+  const handleRemoveMember = async (userId: string) => {
+    if (!confirm("Вы уверены, что хотите удалить участника из проекта?")) return;
+    try {
+      const res = await fetch(`/api/projects/${projectId}/members`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, action: "REMOVE" }),
+      });
+      if (res.ok) {
+        showToast("Участник удален");
+        fetchMembers();
+      } else {
+        const data = await res.json();
+        showToast(data.error || "Ошибка", "error");
+      }
+    } catch (err) {
+      showToast("Ошибка сети", "error");
+    }
+  };
 
   const onDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
@@ -346,6 +408,24 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
             </div>
           );
         })}
+
+        <SearchInputWrapper>
+          <SearchIconWrapper>
+            <Search size={18} />
+          </SearchIconWrapper>
+          <SearchInput
+            placeholder="Поиск по задачам..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </SearchInputWrapper>
+
+        {(userRole === "ADMIN" || session?.user?.id === projectMembers.find((m) => m.role === "ADMIN")?.id) && (
+          <SettingsButton title="Настройки команды" onClick={() => setIsSettingsOpen(true)}>
+            <Settings size={20} />
+          </SettingsButton>
+        )}
+
         <span style={{ fontSize: "0.8rem", color: "#5e6c84", marginLeft: "12px" }}>
           Ваша роль: <strong>{userRole}</strong>
         </span>
@@ -403,6 +483,118 @@ export default function KanbanBoard({ projectId, tasks, onTaskAdded, userRole }:
           {notification.type !== "success" && <AlertCircle size={18} />}
           {notification.message}
         </Toast>
+      )}
+
+      {isSettingsOpen && (
+        <ModalOverlay onClick={() => setIsSettingsOpen(false)}>
+          <Modal onClick={(e) => e.stopPropagation()} style={{ width: "600px" }}>
+            <div
+              style={{ display: "flex", justifyContent: "space-between", marginBottom: "1.5rem", alignItems: "center" }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: "1.25rem",
+                  color: "#172b4d",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                <Shield size={24} color="#0052cc" /> Управление командой
+              </h3>
+              <button
+                onClick={() => setIsSettingsOpen(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#6b778c" }}
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div style={{ maxHeight: "400px", overflowY: "auto" }}>
+              {projectMembers.map((member) => (
+                <div
+                  key={member.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "12px",
+                    borderBottom: "1px solid #ebecf0",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    <UserAvatar $color="#0052cc" style={{ width: 40, height: 40, fontSize: 16 }}>
+                      {(member.name || member.email)[0].toUpperCase()}
+                    </UserAvatar>
+                    <div>
+                      <div style={{ fontWeight: 600, color: "#172b4d" }}>{member.name || "Без имени"}</div>
+                      <div style={{ fontSize: "12px", color: "#6b778c" }}>{member.email}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    {member.role === "ADMIN" ? (
+                      <span
+                        style={{
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          color: "#0052cc",
+                          background: "#deebff",
+                          padding: "4px 8px",
+                          borderRadius: "4px",
+                        }}
+                      >
+                        ВЛАДЕЛЕЦ
+                      </span>
+                    ) : (
+                      <>
+                        <select
+                          value={member.role}
+                          onChange={(e) => handleUpdateMemberRole(member.id, e.target.value)}
+                          style={{ padding: "6px", borderRadius: "4px", border: "1px solid #dfe1e6", fontSize: "13px" }}
+                        >
+                          <option value="EDITOR">Редактор</option>
+                          <option value="VIEWER">Наблюдатель</option>
+                          <option value="ADMIN">Администратор</option>
+                        </select>
+                        <button
+                          onClick={() => handleRemoveMember(member.id)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#de350b",
+                            cursor: "pointer",
+                            display: "flex",
+                          }}
+                          title="Удалить из проекта"
+                        >
+                          <UserX size={20} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: "1.5rem", display: "flex", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setIsSettingsOpen(false)}
+                style={{
+                  background: "#0052cc",
+                  color: "white",
+                  border: "none",
+                  padding: "8px 16px",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontWeight: 500,
+                }}
+              >
+                Готово
+              </button>
+            </div>
+          </Modal>
+        </ModalOverlay>
       )}
     </>
   );

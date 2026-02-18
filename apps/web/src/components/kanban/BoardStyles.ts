@@ -13,6 +13,77 @@ export const PresenceBar = styled.div`
   gap: 8px;
   margin-bottom: 1rem;
   align-items: center;
+  flex-wrap: wrap;
+`;
+
+export const SearchInputWrapper = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  min-width: 250px;
+
+  @media (max-width: 768px) {
+    margin-left: 0;
+    width: 100%;
+  }
+`;
+
+export const SearchInput = styled.input`
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  border: 2px solid #dfe1e6;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.2s;
+  background: #f4f5f7;
+
+  &:focus {
+    outline: none;
+    border-color: #4c9aff;
+    background: white;
+    box-shadow: 0 0 0 2px rgba(76, 154, 255, 0.2);
+  }
+
+  &::placeholder {
+    color: #6b778c;
+  }
+`;
+
+export const SearchIconWrapper = styled.div`
+  position: absolute;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  color: #6b778c;
+  pointer-events: none;
+`;
+
+export const SettingsButton = styled.button`
+  background: #ebecf0;
+  border: none;
+  padding: 8px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #42526e;
+  transition: all 0.2s;
+
+  &:hover {
+    background-color: #dfe1e6;
+    color: #172b4d;
+  }
+`;
+
+export const RoleSelect = styled.select`
+  padding: 4px 8px;
+  border: 1px solid #dfe1e6;
+  border-radius: 4px;
+  font-size: 12px;
+  background: white;
+  color: #172b4d;
 `;
 
 export const UserAvatar = styled.div<{ $color?: string }>`

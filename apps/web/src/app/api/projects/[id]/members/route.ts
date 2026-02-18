@@ -99,3 +99,64 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: "Ошибка сервера" }, { status: 500 });
   }
 }
+
+// Изменение роли или удаление участника
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  const { id: projectId } = await params;
+
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
+  }
+
+  try {
+    const { userId, role, action } = await req.json();
+
+    // Проверяем права отправителя (только ADMIN или Владелец проекта)
+    const senderMembership = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        members: { where: { userId: session.user.id } },
+      },
+    });
+
+    if (!senderMembership) return NextResponse.json({ error: "Проект не найден" }, { status: 404 });
+
+    const isOwner = senderMembership.ownerId === session.user.id;
+    const isAdmin = senderMembership.members[0]?.role === "ADMIN";
+
+    if (!isOwner && !isAdmin) {
+      return NextResponse.json({ error: "У вас нет прав для управления участниками" }, { status: 403 });
+    }
+
+    if (action === "REMOVE") {
+      await prisma.projectMember.deleteMany({
+        where: { projectId, userId },
+      });
+      return NextResponse.json({ message: "Участник удален" });
+    }
+
+    if (role) {
+      // Ищем запись в ProjectMember (владельца нельзя менять через эту таблицу, так как его там нет)
+      const member = await prisma.projectMember.findFirst({
+        where: { projectId, userId },
+      });
+
+      if (!member) {
+        return NextResponse.json({ error: "Участник не найден или является владельцем" }, { status: 404 });
+      }
+
+      await prisma.projectMember.update({
+        where: { id: member.id },
+        data: { role },
+      });
+
+      return NextResponse.json({ message: "Роль обновлена" });
+    }
+
+    return NextResponse.json({ error: "Неверные данные" }, { status: 400 });
+  } catch (error) {
+    console.error("Update Member Error:", error);
+    return NextResponse.json({ error: "Ошибка сервера" }, { status: 500 });
+  }
+}
