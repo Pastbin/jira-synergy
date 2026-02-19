@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import styled from "styled-components";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, FolderPlus } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
@@ -41,6 +41,36 @@ const ProjectCard = styled.div`
 
   &:hover .delete-btn {
     opacity: 1;
+  }
+`;
+
+const EmptyState = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  background: white;
+  border-radius: 12px;
+  border: 2px dashed #dfe1e6;
+  margin-top: 2rem;
+  text-align: center;
+  color: #5e6c84;
+
+  svg {
+    color: #0052cc;
+    margin-bottom: 1.5rem;
+    opacity: 0.5;
+  }
+
+  h2 {
+    color: #172b4d;
+    margin-bottom: 0.5rem;
+  }
+
+  p {
+    max-width: 400px;
+    margin-bottom: 2rem;
   }
 `;
 
@@ -318,7 +348,7 @@ export default function ProjectsPage() {
         <div style={{ display: "flex", justifyContent: "center", marginTop: "4rem" }}>
           <LoadingSpinner />
         </div>
-      ) : (
+      ) : projects.length > 0 ? (
         <ProjectGrid>
           {projects.map((project) => (
             <Link
@@ -338,6 +368,18 @@ export default function ProjectsPage() {
             </Link>
           ))}
         </ProjectGrid>
+      ) : (
+        <EmptyState>
+          <FolderPlus size={64} />
+          <h2>У вас пока нет проектов</h2>
+          <p>
+            Начните работу с создания своего первого проекта. Это поможет вам организовать задачи и эффективно работать
+            в команде.
+          </p>
+          <CreateButton onClick={() => setIsModalOpen(true)}>
+            <Plus size={18} /> Создать свой первый проект
+          </CreateButton>
+        </EmptyState>
       )}
 
       {isModalOpen && (
