@@ -12,6 +12,10 @@ import { getSocket } from "@/lib/socket";
 // Контейнер страницы проекта
 const ProjectContainer = styled.div`
   padding: 2rem;
+
+  @media (max-width: 768px) {
+    padding: 1rem 12px;
+  }
 `;
 
 // Шапка проекта
@@ -20,6 +24,12 @@ const ProjectHeader = styled.header`
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  @media (max-width: 768px) {
+    margin-bottom: 1rem;
+  }
 `;
 
 const InviteForm = styled.form`

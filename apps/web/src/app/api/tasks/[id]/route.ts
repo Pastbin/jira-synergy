@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isAllowedTaskStatus } from "@/lib/taskUtils";
 
 // Обновление задачи (например, смена статуса при Drag-and-Drop)
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -16,6 +17,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   try {
     const body = await req.json();
     const { status, title, description, order, priority, assigneeIds } = body;
+
+    if (status && !isAllowedTaskStatus(status)) {
+      return NextResponse.json({ error: "Недопустимый статус задачи" }, { status: 400 });
+    }
 
     // Проверка прав доступа: редактировать задачу может владелец или участник с доступом
     const task = await prisma.task.findUnique({

@@ -11,6 +11,10 @@ import { getSocket } from "@/lib/socket";
 
 const MainContent = styled.div`
   padding: 2rem;
+
+  @media (max-width: 768px) {
+    padding: 1rem 12px;
+  }
 `;
 
 // Сетка карточек проектов

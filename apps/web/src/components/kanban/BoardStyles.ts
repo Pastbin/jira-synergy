@@ -5,7 +5,16 @@ export const BoardContainer = styled.div`
   gap: 1rem;
   padding: 1rem 0;
   overflow-x: auto;
+  overflow-y: hidden;
   min-height: calc(100vh - 200px);
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+
+  @media (max-width: 768px) {
+    padding: 1rem 12px;
+    gap: 0.75rem;
+    min-height: calc(100vh - 180px);
+  }
 `;
 
 export const PresenceBar = styled.div`
@@ -14,6 +23,11 @@ export const PresenceBar = styled.div`
   margin-bottom: 1rem;
   align-items: center;
   flex-wrap: wrap;
+
+  @media (max-width: 768px) {
+    margin-bottom: 0.75rem;
+    gap: 6px;
+  }
 `;
 
 export const SearchInputWrapper = styled.div`
@@ -125,6 +139,12 @@ export const ColumnContainer = styled.div`
   display: flex;
   flex-direction: column;
   max-height: 100%;
+  flex-shrink: 0;
+
+  @media (max-width: 768px) {
+    min-width: 280px;
+    width: 280px;
+  }
 `;
 
 export const ColumnHeader = styled.div`

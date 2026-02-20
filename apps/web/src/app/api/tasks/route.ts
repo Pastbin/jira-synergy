@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { computeNewTaskOrder, isAllowedTaskStatus } from "@/lib/taskUtils";
 
 // Создание новой задачи
 export async function POST(req: Request) {
@@ -15,6 +16,9 @@ export async function POST(req: Request) {
 
     if (!title || !projectId) {
       return NextResponse.json({ error: "Название и ID проекта обязательны" }, { status: 400 });
+    }
+    if (status && !isAllowedTaskStatus(status)) {
+      return NextResponse.json({ error: "Недопустимый статус задачи" }, { status: 400 });
     }
 
     // Проверяем доступ: владелец или участник с правом EDITOR/ADMIN
@@ -37,7 +41,7 @@ export async function POST(req: Request) {
       orderBy: { order: "desc" },
     });
 
-    const newOrder = lastTask ? lastTask.order + 1000 : 1000;
+    const newOrder = computeNewTaskOrder(lastTask?.order ?? null);
 
     const task = await prisma.task.create({
       data: {
