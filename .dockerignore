@@ -1,0 +1,58 @@
+# Зависимости (устанавливаются через npm ci в образе)
+node_modules
+**/node_modules
+
+# Git и IDE
+.git
+.gitignore
+.cursor
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Документация и не нужные для сборки приложения
+diploma
+*.pptx
+*.docx
+*.pdf
+*.md
+!README.md
+
+# Артефакты сборки (пересобираются в образе)
+.next
+**/.next
+dist
+**/dist
+.turbo
+**/.turbo
+out
+**/out
+
+# Логи и кэш
+*.log
+npm-debug.log*
+.npm
+.cache
+
+# Тесты и покрытие (не нужны в production-образе)
+coverage
+**/coverage
+*.test.*
+*.spec.*
+__tests__
+**/__tests__
+
+# Переменные окружения (в образ передаются через docker-compose)
+.env
+.env.*
+!.env.example
+
+# Прочее
+.DS_Store
+Thumbs.db
+*.txt
+!packages/**/*.txt
+!apps/**/*.txt
