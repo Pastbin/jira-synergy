@@ -5,6 +5,9 @@ import bcrypt from "bcryptjs";
 
 // Конфигурация NextAuth для управления сессиями и авторизацией
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  session: {
+    strategy: "jwt",
+  },
   providers: [
     Credentials({
       name: "Credentials",
