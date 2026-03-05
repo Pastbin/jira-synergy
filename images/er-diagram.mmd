@@ -1,0 +1,69 @@
+erDiagram
+    USER {
+        string id PK
+        string name
+        string email UK
+        string password
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    PROJECT {
+        string id PK
+        string name
+        string description
+        string ownerId FK
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    PROJECT_MEMBER {
+        string id PK
+        string projectId FK
+        string userId FK
+        string role "ADMIN|EDITOR|VIEWER"
+    }
+
+    TASK {
+        string id PK
+        string title
+        string description
+        string status "TODO|IN_PROGRESS|REVIEW|TESTING|DONE"
+        string priority "LOW|MEDIUM|HIGH|URGENT"
+        float order
+        datetime deadline
+        string projectId FK
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    COMMENT {
+        string id PK
+        string text
+        string taskId FK
+        string authorId FK
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    ACTIVITY {
+        string id PK
+        string type
+        string content
+        string taskId FK
+        string userId FK
+        datetime createdAt
+    }
+
+    USER ||--o{ PROJECT : "owns"
+    USER ||--o{ PROJECT_MEMBER : "has role in"
+    PROJECT ||--o{ PROJECT_MEMBER : "includes"
+
+    PROJECT ||--o{ TASK : "contains"
+    USER }o--o{ TASK : "assigned"
+
+    TASK ||--o{ COMMENT : "has"
+    USER ||--o{ COMMENT : "writes"
+
+    TASK ||--o{ ACTIVITY : "logged by"
+    USER ||--o{ ACTIVITY : "performs"
